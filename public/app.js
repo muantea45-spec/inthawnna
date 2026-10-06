@@ -227,7 +227,6 @@ const mobileI18n = {
     copyBtn: 'Copy',
     aboutTitle: 'About',
     aboutSub: 'Inthawnna File Transfer App Info',
-    aboutDev: 'This software is developed by <b>Muantea45@gmail.com</b>. Unauthorized modification, distribution, or reproduction is strictly prohibited.',
     aboutChimeTitle: 'Chime Sound',
     aboutChimeDesc: 'Play sound on incoming transfers and notifications',
     contactDev: 'Contact Developer'
@@ -266,7 +265,6 @@ const mobileI18n = {
     copyBtn: 'Copy Rawh',
     aboutTitle: 'Chanchin',
     aboutSub: 'Inthawnna File Transfer App Chanchin',
-    aboutDev: 'He software hi <b>Muantea45@gmail.com</b> siam a ni a, ama remtihna lo chuan engmah tih danglam emaw thawn chhuah emaw a remchang lo ang.',
     aboutChimeTitle: 'Tih rikna (Chime)',
     aboutChimeDesc: 'File thawn zawh emaw dawn huna ri chhuak tur',
     contactDev: 'Siamtu Bia Rawh'
@@ -367,8 +365,6 @@ function setMobileLanguage(lang) {
   const aboutScreenSub = document.querySelector('#aboutScreen .screen-header p');
   if (aboutScreenSub) aboutScreenSub.textContent = t.aboutSub;
 
-  const aboutP = document.querySelector('.about-message-box p');
-  if (aboutP) aboutP.innerHTML = t.aboutDev;
   const chimeSettingTitle = document.querySelector('.about-setting-title');
   if (chimeSettingTitle) chimeSettingTitle.textContent = t.aboutChimeTitle;
   const chimeSettingDesc = document.querySelector('.about-setting-desc');

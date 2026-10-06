@@ -1896,32 +1896,57 @@ a.room-url-text:hover {
     justify-content: center;
     align-items: center;
     gap: 4px;
-    padding: 6px 2px;
-    font-size: 0.75rem;
+    padding: 8px 2px;
+    font-size: 0.76rem;
     white-space: nowrap;
-    border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.04);
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-dim);
     min-width: 0;
+    position: relative;
+    transition: var(--trans-fast);
   }
 
   .nav-tab svg {
     width: 13px;
     height: 13px;
     flex-shrink: 0;
+    color: inherit;
+    transition: var(--trans-fast);
   }
 
   .nav-tab::after {
-    display: none;
+    display: block;
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 4px;
+    right: 4px;
+    height: 2.5px;
+    background: #ffffff;
+    border-radius: 2px;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: var(--trans-fast);
+  }
+
+  .nav-tab:hover {
+    color: var(--text-main);
   }
 
   .nav-tab.active {
-    background: #ffffff;
-    color: #09090b;
+    background: transparent;
+    color: #ffffff;
     font-weight: 700;
   }
 
   .nav-tab.active svg {
-    color: #09090b;
+    color: #ffffff;
+  }
+
+  .nav-tab.active::after {
+    opacity: 1;
+    transform: translateY(0);
   }
 
   .tab-badge {
@@ -2075,6 +2100,35 @@ a.room-url-text:hover {
     left: 16px;
     right: 16px;
     bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Transfer Stats Meter: Single line layout in mobile view */
+  .daily-stats-meter {
+    padding: 8px 12px;
+    font-size: 0.76rem;
+    justify-content: center;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .daily-stats-left {
+    gap: 6px;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+    max-width: 100%;
+  }
+
+  .daily-stats-tag {
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    flex-shrink: 0;
+  }
+
+  #dailyStatsText {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.76rem;
   }
 }
 
@@ -2649,18 +2703,24 @@ a.room-url-text:hover {
 .daily-stats-meter {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 10px 16px;
   background: rgba(255, 255, 255, 0.03);
   border-top: 1px solid var(--border-subtle);
   font-size: 0.82rem;
   color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .daily-stats-left {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+  max-width: 100%;
 }
 
 .daily-stats-tag {
@@ -2670,5 +2730,13 @@ a.room-url-text:hover {
   border-radius: var(--radius-full);
   font-weight: 600;
   font-size: 0.75rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+#dailyStatsText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 

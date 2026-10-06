@@ -201,8 +201,7 @@ const I18N = {
     aboutH3Title: 'Zero App Needed',
     aboutH3Desc: 'Works directly in browser on Android, iPhone, PC, Mac, Linux.',
     aboutH4Title: 'Direct Auto-Save',
-    aboutH4Desc: 'Desktop Chromium folder picker streams files straight to your folder.',
-    aboutDev: 'This software is developed by <b>Muantea45@gmail.com</b>. Unauthorized modification, distribution, or reproduction is strictly prohibited.'
+    aboutH4Desc: 'Desktop Chromium folder picker streams files straight to your folder.'
   },
   mz: {
     appName: 'Inthawnna',
@@ -295,8 +294,7 @@ const I18N = {
     aboutH3Title: 'App A Ngai Lo',
     aboutH3Desc: 'Android, iPhone, PC, Mac, Linux-ah browser atangin a tlang nghal vek.',
     aboutH4Title: 'Direct Auto-Save',
-    aboutH4Desc: 'File dawnte hi i device chhunga drive-ah a lut e.',
-    aboutDev: 'He software hi <b>Muantea45@gmail.com</b> siam a ni a, ama remtihna lo chuan engmah tih danglam emaw thawn chhuah emaw a remchang lo ang.'
+    aboutH4Desc: 'File dawnte hi i device chhunga drive-ah a lut e.'
   }
 };
 
@@ -531,9 +529,6 @@ function setLanguage(lang) {
   if (aboutH4Title) aboutH4Title.textContent = t.aboutH4Title;
   const aboutH4Desc = document.getElementById('aboutH4Desc');
   if (aboutH4Desc) aboutH4Desc.textContent = t.aboutH4Desc;
-
-  const aboutDevAttr = document.getElementById('aboutDevAttribution');
-  if (aboutDevAttr) aboutDevAttr.innerHTML = t.aboutDev;
 
   // Stats meter
   statsManager.render();

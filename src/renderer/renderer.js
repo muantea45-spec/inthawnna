@@ -203,7 +203,6 @@ const desktopI18n = {
     chimeLabel: 'Chime',
     aboutTitle: 'About',
     aboutSub: 'Inthawnna File Transfer Developer & Software Information',
-    aboutDev: 'This software is developed by <b>Muantea45@gmail.com</b>. Unauthorized modification, distribution, or reproduction is strictly prohibited.',
     destFolderLabel: 'Destination Folder:',
     changeFolder: 'Change',
     openFolder: 'Open Folder'
@@ -246,7 +245,6 @@ const desktopI18n = {
     chimeLabel: 'Tih rikna',
     aboutTitle: 'Chanchin',
     aboutSub: 'Inthawnna File Transfer Siamtu leh App Chanchin',
-    aboutDev: 'He software hi <b>Muantea45@gmail.com</b> siam a ni a, ama remtihna lo chuan engmah tih danglam emaw thawn chhuah emaw a remchang lo ang.',
     destFolderLabel: 'Save-na Hmun:',
     changeFolder: 'Thlak',
     openFolder: 'Folder Hawng'
@@ -352,8 +350,6 @@ function setDesktopLanguage(lang) {
   if (aboutTitle) aboutTitle.textContent = t.aboutTitle;
   const aboutSub = document.getElementById('desktopAboutSub');
   if (aboutSub) aboutSub.textContent = t.aboutSub;
-  const aboutMessage = document.getElementById('desktopAboutMessage');
-  if (aboutMessage) aboutMessage.innerHTML = t.aboutDev;
 
   const destFolderLabel = document.getElementById('desktopDestFolderLabel');
   if (destFolderLabel) destFolderLabel.textContent = t.destFolderLabel;
