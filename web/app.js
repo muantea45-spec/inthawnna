@@ -239,7 +239,7 @@ const I18N = {
     dividerOr: 'EMAW',
     scanCameraBtn: 'Camera hmangin QR Scan rawh',
     stopCameraBtn: 'Camera Ti Tawp Rawh',
-    noticeNoPeer: 'Phone emaw device inzawm a la awm lo. QR code scan la emaw Room Code chhu rawh le.',
+    noticeNoPeer: 'Engmah thlunzawm a la ni lo. QR code kha scan emaw room code kha chhu lut emaw phawt rawh.',
     viewQrBtn: 'QR Code En Rawh ➔',
     dropTitle: 'File emaw thlalak heta hian dah rawh',
     dropSub: 'Direct peer-to-peer streaming • File size bituk a awm lo',
