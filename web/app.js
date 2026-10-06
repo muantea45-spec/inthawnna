@@ -816,14 +816,44 @@ class InthawnnaP2P {
       pingInterval: 5000,
       config: {
         iceServers: [
-          // STUN servers for direct P2P NAT discovery
+          // Google STUN (primary & fastest worldwide)
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
           { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' },
+
+          // Cloudflare & Twilio STUN
+          { urls: 'stun:stun.cloudflare.com:3478' },
           { urls: 'stun:global.stun.twilio.com:3478' },
+
+          // Metered STUN
+          { urls: 'stun:openrelay.metered.ca:80' },
           { urls: 'stun:stun.relay.metered.ca:80' },
 
-          // Global TURN relay servers (penetrates Symmetric NAT, AP isolation, 4G/5G CGNAT, and firewalls)
+          // Open Relay TURN servers (bypasses Symmetric NAT, Carrier-Grade NAT on 4G/5G, and strict firewalls)
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+
+          // Fallback global relay endpoints
           {
             urls: 'turn:global.relay.metered.ca:80',
             username: 'openrelayproject',
@@ -929,6 +959,29 @@ class InthawnnaP2P {
 
   // --- Handle Data Connection ---
   handleIncomingConnection(conn) {
+    // Monitor WebRTC ICE connection state across different networks
+    const monitorICE = () => {
+      const pc = conn.peerConnection;
+      if (pc && !pc._inthawnnaMonitored) {
+        pc._inthawnnaMonitored = true;
+        pc.addEventListener('iceconnectionstatechange', () => {
+          console.log('[WebRTC ICE] Connection state:', pc.iceConnectionState);
+          if (pc.iceConnectionState === 'failed') {
+            console.warn('[WebRTC ICE] Direct route failed across networks. Attempting ICE restart...');
+            if (typeof pc.restartIce === 'function') {
+              pc.restartIce();
+            }
+          }
+        });
+      }
+    };
+    if (conn.peerConnection) {
+      monitorICE();
+    } else {
+      setTimeout(monitorICE, 500);
+      setTimeout(monitorICE, 1500);
+    }
+
     conn.on('open', () => {
       this.connections.set(conn.peer, conn);
       this.updateConnectedUI();
@@ -1842,12 +1895,19 @@ class InthawnnaP2P {
     });
 
     // Manual Room Join
-    document.getElementById('joinRoomBtn')?.addEventListener('click', () => {
+    const triggerJoin = () => {
       const input = document.getElementById('joinRoomCodeInput');
       const code = input?.value.trim();
       if (code) {
         window.location.hash = `room=${code}`;
         window.location.reload();
+      }
+    };
+    document.getElementById('joinRoomBtn')?.addEventListener('click', triggerJoin);
+    document.getElementById('joinRoomCodeInput')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        triggerJoin();
       }
     });
 
