@@ -1516,24 +1516,27 @@ a.room-url-text:hover {
 .input-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 10px;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
 }
 
 .input-group input {
-  flex: 1;
-  min-width: 0;
-  width: 0;
-  padding: 10px 14px;
+  flex: 0 1 180px;
+  width: 170px;
+  max-width: 200px;
+  min-width: 110px;
+  padding: 10px 12px;
   background: #141418;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   color: #ffffff;
   font-family: var(--font-body);
   font-size: 0.92rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  text-align: center;
   box-sizing: border-box;
   outline: none;
   transition: var(--trans-fast);
@@ -1555,22 +1558,29 @@ a.room-url-text:hover {
 
 @media (max-width: 600px) {
   .app-main {
-    padding: 16px 10px 36px;
+    padding: 14px 10px 36px;
   }
   .card {
     padding: 16px 12px;
     margin-bottom: 16px;
   }
   .input-group {
-    gap: 6px;
+    gap: 8px;
   }
   .input-group input {
-    padding: 9px 10px;
-    font-size: 0.85rem;
+    flex: 0 1 145px;
+    width: 140px;
+    max-width: 155px;
+    min-width: 100px;
+    padding: 9px 8px;
+    font-size: 0.86rem;
+    letter-spacing: 0.05em;
   }
   .input-group #joinRoomBtn {
-    padding: 9px 13px;
+    flex-shrink: 0;
+    padding: 9px 15px;
     font-size: 0.84rem;
+    white-space: nowrap;
   }
 }
 
@@ -2029,6 +2039,36 @@ a.room-url-text:hover {
 
   .room-share-bar {
     padding: 10px;
+  }
+
+  .join-box .input-group {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .join-box .input-group input {
+    flex: 0 1 145px;
+    width: 140px;
+    max-width: 150px;
+    min-width: 100px;
+    padding: 9px 8px;
+    font-size: 0.86rem;
+    text-align: center;
+    letter-spacing: 0.05em;
+    box-sizing: border-box;
+  }
+
+  .join-box .input-group #joinRoomBtn {
+    flex: 0 0 auto;
+    padding: 9px 15px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    white-space: nowrap;
+    box-sizing: border-box;
   }
 
   .toast-shelf {

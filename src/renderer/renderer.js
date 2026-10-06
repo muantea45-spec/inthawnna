@@ -212,7 +212,7 @@ const desktopI18n = {
     badge: 'MZ',
     brandSub: 'File Inthawnna • Wireless • Phone-ah App A Ngai Lo',
     qrHeading: 'Phone-in Scan Rawh',
-    step1: 'I Phone leh Computer te WiFi hman a inang tur a ni.',
+    step1: 'I Phone leh Computer/deveice dang te WiFi hman a inang tur a ni.',
     step2: 'QR code hi i phone atangin scan rawh',
     step3: 'I duh duh i thawn tawh mai dawn nia.',
     dropTitle: 'File Thawn Tur Dah Rawh',
