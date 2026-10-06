@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inthawnna File Transfer - Wireless Phone to PC Share</title>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Global Full-Window Drag & Drop Overlay -->
+    <div class="global-drop-overlay" id="desktopGlobalDropOverlay" style="display: none;">
+      <div class="global-drop-backdrop"></div>
+      <div class="global-drop-box">
+        <div class="drop-glow-ring"></div>
+        <div class="drop-icon-anim">
+          <svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <h2 class="drop-title" id="desktopDropTitle">Drop Files to Beam</h2>
+        <p class="drop-sub" id="desktopDropSub">Release anywhere to send to phone</p>
+      </div>
+    </div>
+
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo-img-wrap">
+          <img src="icon.png" alt="Inthawnna Icon" class="brand-custom-icon">
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">Inthawnna</h1>
+          <span class="brand-subtitle" id="desktopBrandSub">File Transfer • Wireless • Zero App on Phone</span>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <button class="lang-toggle-btn" id="desktopLangToggleBtn" title="Switch Language (EN/MZ)">
+          <span class="lang-icon">🌐</span>
+          <span id="desktopLangBadge" class="lang-badge">MZ</span>
+        </button>
+        <a href="https://inthawnna.pages.dev" target="_blank" class="live-link-pill" title="Live P2P Web Portal (inthawnna.pages.dev)">
+          <span>inthawnna.pages.dev ↗</span>
+        </a>
+        <div class="network-badge-wrap">
+          <div class="network-indicator online" id="statusIndicator"></div>
+          <select id="interfaceSelect" class="interface-dropdown" title="Select Network Adapter"></select>
+          <button id="refreshNetworkBtn" class="icon-btn" title="Refresh Network Adapters">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="main-layout">
+      <!-- Left Station: QR & Connect -->
+      <section class="connect-sidebar">
+        <div class="qr-card">
+          <div class="qr-header">
+            <h3 id="desktopQrHeading">Scan with Phone</h3>
+            <span class="badge" id="clientCountBadge">0 phones connected</span>
+          </div>
+          
+          <div class="qr-frame-wrapper">
+            <div class="qr-frame" id="qrContainer">
+              <img id="qrImage" src="" alt="Scan QR Code to Connect">
+              <div class="qr-scanner-line"></div>
+            </div>
+          </div>
+
+          <div class="url-bar-container">
+            <span class="url-text" id="serverUrlText">http://...</span>
+            <button id="copyUrlBtn" class="url-copy-btn" title="Copy URL">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+
+          <div class="quick-steps">
+            <div class="step-item">
+              <span class="step-num">1</span>
+              <span id="desktopStep1">Connect Phone and PC to the same Wi-Fi.</span>
+            </div>
+            <div class="step-item">
+              <span class="step-num">2</span>
+              <span id="desktopStep2">Scan QR code with your phone camera.</span>
+            </div>
+            <div class="step-item">
+              <span class="step-num">3</span>
+              <span id="desktopStep3">Transfer any file back and forth!</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Area: Transfer Tabs -->
+      <section class="transfer-workspace">
+        <nav class="tab-nav">
+          <button class="tab-btn active" data-tab="incoming">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+            Received Files
+            <span class="tab-count" id="receivedCount">0</span>
+          </button>
+          <button class="tab-btn" data-tab="outgoing">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+            Send to Phone
+            <span class="tab-count" id="stagedCount">0</span>
+          </button>
+          <button class="tab-btn" data-tab="clipboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+            Clipboard Sync
+          </button>
+          <button class="tab-btn" data-tab="about">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            About
+          </button>
+        </nav>
+
+        <!-- Tab 1: Received Files -->
+        <div class="tab-content active" id="incomingTab">
+          <div class="tab-toolbar">
+            <div class="toolbar-title">
+              <h2>Incoming from Phone</h2>
+              <p>Files sent from your mobile device automatically land here.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button id="openFolderActionBtn" class="pill-btn secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span id="openFolderActionText">Open Save Folder</span>
+              </button>
+              <button id="clearHistoryBtn" class="pill-btn text-only" title="Clear received list view">Clear List</button>
+            </div>
+          </div>
+
+          <!-- Desktop Search & Filter Toolbar -->
+          <div class="received-filter-toolbar" id="desktopFilterToolbar" style="display: none;">
+            <div class="filter-search-box">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="desktopSearchInput" placeholder="Search received files...">
+              <button class="filter-clear-btn" id="desktopSearchClear">×</button>
+            </div>
+            <div class="filter-chips">
+              <button class="filter-chip active" data-filter="all">All</button>
+              <button class="filter-chip" data-filter="image">Photos 🖼️</button>
+              <button class="filter-chip" data-filter="video">Videos 🎬</button>
+              <button class="filter-chip" data-filter="document">Docs 📄</button>
+              <button class="filter-chip" data-filter="audio">Audio 🎵</button>
+              <button class="filter-chip" data-filter="archive">Archives 📦</button>
+            </div>
+          </div>
+
+          <!-- Desktop Batch Action Bar -->
+          <div class="batch-bar" id="desktopBatchBar" style="display: none;">
+            <div class="batch-left">
+              <label class="batch-select-label">
+                <input type="checkbox" id="desktopSelectAllCb">
+                <span id="desktopSelectAllText">Select All</span>
+              </label>
+              <span class="batch-pill" id="desktopSelectedCount">0 selected</span>
+            </div>
+            <div class="batch-right">
+              <button class="pill-btn secondary sm" id="desktopDownloadSelectedZip">Download ZIP</button>
+              <button class="pill-btn text-only danger sm" id="desktopDeleteSelectedBtn">Clear Selected</button>
+            </div>
+          </div>
+
+          <div class="file-list-container" id="receivedListContainer">
+            <div class="empty-state" id="receivedEmptyState">
+              <div class="empty-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 2v13m0-13l4 4m-4-4L8 6"></path>
+                  <path d="M20 17v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"></path>
+                </svg>
+              </div>
+              <h3>Waiting for transfers...</h3>
+              <p>Scan the QR code on the left with your phone camera, tap "Upload Files", and they will instantly appear here!</p>
+            </div>
+
+            <div class="file-cards-grid" id="receivedCardsGrid" style="display: none;"></div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Outgoing (Send to Phone) -->
+        <div class="tab-content" id="outgoingTab">
+          <div class="tab-toolbar">
+            <div class="toolbar-title">
+              <h2>Send Files to Phone</h2>
+              <p>Stage files here. Connected phones can instantly download them via browser.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button id="addFilesBtn" class="pill-btn primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span id="chooseFilesBtnText">Choose Files</span>
+              </button>
+              <button id="clearStagedBtn" class="pill-btn text-only"><span id="clearStagedBtnText">Clear All</span></button>
+            </div>
+          </div>
+
+          <div class="drop-zone" id="desktopDropZone">
+            <div class="drop-zone-content">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="drop-icon">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <h3 id="desktopDropZoneH3">Drag & Drop Files Here</h3>
+              <p id="desktopDropZoneP">or click "Choose Files" above to share with your phone</p>
+            </div>
+          </div>
+
+          <div class="staged-list" id="stagedList"></div>
+        </div>
+
+        <!-- Tab 3: Clipboard Sync -->
+        <div class="tab-content" id="clipboardTab">
+          <div class="tab-toolbar">
+            <div class="toolbar-title">
+              <h2 id="desktopClipTitle">Shared Clipboard & Notes</h2>
+              <p id="desktopClipSub">Instantly beam links, passwords, and text between PC and Phone.</p>
+            </div>
+          </div>
+
+          <div class="clipboard-grid">
+            <div class="clipboard-box">
+              <div class="box-header">
+                <h3 id="desktopFromPhoneTitle">Latest Text from Phone</h3>
+                <button id="copyFromPhoneBtn" class="pill-btn secondary sm"><span id="copyFromPhoneBtnText">Copy to PC Clipboard</span></button>
+              </div>
+              <textarea id="fromPhoneText" readonly placeholder="Text copied or typed on your phone will appear here in real-time..."></textarea>
+            </div>
+
+            <div class="clipboard-box">
+              <div class="box-header">
+                <h3 id="desktopToPhoneTitle">Send Text to Phone</h3>
+                <button id="sendToPhoneBtn" class="pill-btn primary sm"><span id="sendToPhoneBtnText">Send to Phone</span></button>
+              </div>
+              <textarea id="toPhoneText" placeholder="Type or paste text here to beam to your phone..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: About -->
+        <div class="tab-content" id="aboutTab">
+          <div class="tab-toolbar">
+            <div class="toolbar-title">
+              <h2 id="desktopAboutTitle">About</h2>
+              <p id="desktopAboutSub">Inthawnna File Transfer Developer & Software Information</p>
+            </div>
+          </div>
+
+          <div class="desktop-about-container">
+            <div class="desktop-about-card">
+              <div class="desktop-about-avatar-wrap">
+                <img src="icon.png" alt="Inthawnna Logo" class="desktop-about-avatar">
+              </div>
+              <h2 class="desktop-about-title">Inthawnna File Transfer</h2>
+              <span class="desktop-about-version">Version 1.0.0 • Wireless Phone to PC</span>
+
+              <div class="desktop-about-message">
+                <p id="desktopAboutMessage">This software is developed by <b>Muantea45@gmail.com</b>. Unauthorized modification, distribution, or reproduction is strictly prohibited.</p>
+              </div>
+
+              <div class="desktop-about-actions">
+                <a href="mailto:Muantea45@gmail.com" class="pill-btn primary">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  Muantea45@gmail.com
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Status Bar -->
+    <footer class="app-footer">
+      <div class="folder-destination">
+        <span class="label" id="desktopDestFolderLabel">Destination Folder:</span>
+        <span class="folder-path" id="saveFolderPath">C:\...</span>
+        <button id="changeFolderBtn" class="mini-btn"><span id="changeFolderBtnText">Change</span></button>
+        <button id="openFolderBtn" class="mini-btn"><span id="openFolderBtnText">Open Folder</span></button>
+      </div>
+
+      <div class="footer-settings">
+        <div class="footer-stats-wrap" style="display:inline-flex;align-items:center;">
+          <span class="stats-footer-tag">Stats</span>
+          <span id="desktopDailyStatsText" style="font-size:0.8rem;color:var(--text-muted);margin-left:6px;margin-right:12px;">Today: 0 files (0 MB)</span>
+        </div>
+
+        <label class="toggle-control" title="Play gentle sound when file transfer completes">
+          <input type="checkbox" id="soundToggle" checked>
+          <span class="toggle-slider"></span>
+          <span class="toggle-label" id="soundToggleLabel">Chime</span>
+        </label>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Desktop Media Lightbox Modal -->
+  <div class="desktop-lightbox-modal" id="desktopLightbox" style="display: none;">
+    <div class="desktop-lightbox-scrim" id="desktopLightboxScrim"></div>
+    <div class="desktop-lightbox-panel">
+      <header class="desktop-lightbox-header">
+        <div class="desktop-lightbox-meta">
+          <h3 class="desktop-lightbox-title" id="desktopLightboxTitle">File name</h3>
+          <span class="desktop-lightbox-subtitle" id="desktopLightboxSubtitle">2.4 MB • Image</span>
+        </div>
+        <div class="desktop-lightbox-tools">
+          <button class="pill-btn secondary sm" id="desktopLightboxOpenBtn" title="Open with Windows Default App">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Open File
+          </button>
+          <button class="pill-btn secondary sm" id="desktopLightboxFolderBtn" title="Show in File Explorer">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Show in Folder
+          </button>
+          <button class="icon-btn" id="desktopLightboxCloseBtn" title="Close (Esc)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="desktop-lightbox-stage" id="desktopLightboxStage"></div>
+
+      <footer class="desktop-lightbox-nav">
+        <button class="lightbox-arrow-btn" id="desktopLightboxPrevBtn" title="Previous Media (Left arrow)">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span class="desktop-lightbox-counter" id="desktopLightboxCounter">1 / 1</span>
+        <button class="lightbox-arrow-btn" id="desktopLightboxNextBtn" title="Next Media (Right arrow)">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

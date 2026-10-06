@@ -1,0 +1,75 @@
+{
+  "name": "inthawnna",
+  "productName": "Inthawnna File Transfer",
+  "version": "1.0.0",
+  "description": "Wireless Phone to PC File Transfer (Zero App on Phone)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win",
+    "web": "node web-server.js",
+    "deploy:pages": "npx wrangler pages deploy web --project-name inthawnna",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
+  },
+  "keywords": [
+    "file-transfer",
+    "wireless",
+    "mobile-to-pc",
+    "inthawnna"
+  ],
+  "author": "Inthawnna",
+  "license": "MIT",
+  "dependencies": {
+    "archiver": "^8.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "jszip": "^3.10.2",
+    "mime-types": "^3.0.2",
+    "multer": "^2.4.0",
+    "peerjs": "^1.5.5",
+    "qrcode": "^1.5.4",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "electron": "^35.7.5",
+    "electron-builder": "^26.15.3",
+    "wrangler": "^4.147.0"
+  },
+  "build": {
+    "appId": "com.inthawnna.filetransfer",
+    "productName": "Inthawnna File Transfer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "public/**/*",
+      "build/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Inthawnna File Transfer",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
+    }
+  }
+}

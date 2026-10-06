@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Inthawnna — P2P File Transfer | Wireless Phone to PC</title>
+  
+  <meta name="description" content="Inthawnna is a blazing-fast, private peer-to-peer file transfer web app. Beam photos, 4K videos, and files between phone and PC at full Wi-Fi speed with zero cloud uploads.">
+  <meta name="theme-color" content="#09090b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Inthawnna">
+  
+  <!-- Favicon and App Icons -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css?v=2.1">
+</head>
+<body>
+  <div class="app-root">
+    <!-- Global Full-Window Drag & Drop Overlay -->
+    <div class="global-drop-overlay" id="globalDropOverlay" style="display: none;">
+      <div class="global-drop-backdrop"></div>
+      <div class="global-drop-box">
+        <div class="drop-glow-ring"></div>
+        <div class="drop-icon-anim">
+          <svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <h2 class="drop-title" id="dropOverlayTitle">Drop Files to Beam</h2>
+        <p class="drop-sub" id="dropOverlaySub">Release anywhere to stage files</p>
+      </div>
+    </div>
+
+    <!-- Top Global Header -->
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="header-main-bar">
+          <div class="brand-section">
+            <div class="brand-logo-wrap">
+              <img src="icon.png" alt="Inthawnna Logo" class="brand-icon">
+              <span class="logo-glow"></span>
+            </div>
+            <div class="brand-details">
+              <div class="brand-title-row">
+                <h1 class="brand-name">Inthawnna</h1>
+                <span class="brand-pill">P2P Web</span>
+              </div>
+              <p class="brand-tagline">Wireless Phone ➔ PC Transfer • Zero Cloud</p>
+            </div>
+          </div>
+
+          <!-- Header Controls & Status -->
+          <div class="header-status-panel">
+            <!-- Connection Status Pill -->
+            <div class="status-badge" id="connectionBadge">
+              <span class="status-pulse-dot" id="statusPulseDot"></span>
+              <span class="status-label" id="statusLabel">Initializing...</span>
+            </div>
+
+            <!-- Wake Lock Pill -->
+            <div class="pill-indicator wake-lock-indicator" id="wakeLockBadge" title="Screen kept awake during active transfers">
+              <span class="pulse-mini-dot"></span>
+              <span>Awake</span>
+            </div>
+
+            <!-- Audio Chime Toggle -->
+            <label class="toggle-control" title="Audio Chime (Tih rikna)">
+              <input type="checkbox" id="soundToggle" checked>
+              <span class="toggle-track">
+                <span class="toggle-thumb"></span>
+              </span>
+              <span class="toggle-caption">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+                <span id="soundCaptionLabel">Tih rikna</span>
+              </span>
+            </label>
+
+            <!-- Language Switcher Toggle -->
+            <button class="lang-toggle-btn" id="langToggleBtn" title="Switch Language (English / Mizo)">
+              <span class="lang-icon">🌐</span>
+              <span id="langLabel" class="lang-badge">MZ</span>
+            </button>
+
+            <!-- Auto-Accept vs Confirmation Toggle -->
+            <label class="toggle-control" id="confirmToggleWrap" title="Confirmation for incoming transfers">
+              <input type="checkbox" id="confirmToggle">
+              <span class="toggle-track">
+                <span class="toggle-thumb"></span>
+              </span>
+              <span class="toggle-caption">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                <span id="confirmToggleLabel">Confirm</span>
+              </span>
+            </label>
+
+            <!-- Auto-Save Folder Picker (Desktop Chrome/Edge) -->
+            <button class="action-mini-btn" id="folderPickerBtn" title="Choose auto-save folder for received files (Direct to PC hard drive)">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span id="folderPickerLabel">Auto-Save Folder</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs (Placed Just Below the Name of the App) -->
+        <nav class="app-nav" id="mainNavigation">
+          <button class="nav-tab active" data-tab="connectTab" id="navConnectTab" title="Pairing Station">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"/>
+              <rect x="14" y="3" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/>
+              <rect x="3" y="14" width="7" height="7"/>
+            </svg>
+            <span class="tab-label">
+              <span class="tab-full">Pairing</span>
+              <span class="tab-short">Pair</span>
+            </span>
+          </button>
+
+          <button class="nav-tab" data-tab="transferTab" id="navTransferTab" title="Send Files">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 19V5m-7 7l7-7 7 7"/>
+            </svg>
+            <span class="tab-label">
+              <span class="tab-full">Send Files</span>
+              <span class="tab-short">Send</span>
+            </span>
+            <span class="tab-badge" id="stagedBadge" style="display: none;">0</span>
+          </button>
+
+          <button class="nav-tab" data-tab="receivedTab" id="navReceivedTab" title="Received Files">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14m7-7l-7 7-7-7"/>
+            </svg>
+            <span class="tab-label">
+              <span class="tab-full">Received</span>
+              <span class="tab-short">Recv</span>
+            </span>
+            <span class="tab-badge highlight" id="receivedBadge">0</span>
+          </button>
+
+          <button class="nav-tab" data-tab="clipboardTab" id="navClipboardTab" title="Clipboard">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+            </svg>
+            <span class="tab-label">
+              <span class="tab-full">Clipboard</span>
+              <span class="tab-short">Clip</span>
+            </span>
+          </button>
+
+          <button class="nav-tab" data-tab="aboutTab" id="navAboutTab" title="About">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span class="tab-label">
+              <span class="tab-full">About</span>
+              <span class="tab-short">About</span>
+            </span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="app-main">
+      <div class="content-container">
+        <!-- Station 1: Pairing / QR Code Station (Default First View) -->
+        <section class="tab-pane active" id="connectTab">
+          <!-- Pairing Prompt Hero / Welcome Banner -->
+          <div class="pairing-prompt-banner" id="pairingPromptBanner">
+            <div class="prompt-header-row">
+              <div class="prompt-icon-badge">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+              </div>
+              <div class="prompt-status-row">
+                <span class="prompt-live-pill" id="promptLivePill">
+                  <span class="prompt-pulse-dot"></span>
+                  <span id="promptPillText">Awaiting Device Pairing</span>
+                </span>
+                <span class="prompt-tech-tag">
+                  <span class="tag-full">Direct WebRTC P2P • Zero Cloud Storage</span>
+                  <span class="tag-short">Direct P2P • Zero Cloud</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="prompt-body-block">
+              <h2 class="prompt-title" id="promptTitle">Pair your devices</h2>
+              <p class="prompt-desc" id="promptDesc">
+                Connect devices instantly to transfer files directly. Scan the QR code below with your phone camera, share the pairing link, or enter the 6-digit Room Code.
+              </p>
+            </div>
+
+            <div class="prompt-actions" id="promptActions" style="display: none;">
+              <button class="btn-glow primary-btn mini" id="promptOpenTransferBtn">
+                <span>Open Send Files ➔</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="pairing-container">
+            <!-- Room Host Station (QR code & Room ID) -->
+            <div class="card pairing-card host-box">
+              <div class="pairing-header">
+                <div class="qr-heading-group">
+                  <h3 class="card-title" id="hostCardTitle">Scan with Phone Camera</h3>
+                  <span class="badge online" id="peerCountBadge">0 paired devices</span>
+                </div>
+              </div>
+
+              <!-- QR Code Display Area -->
+              <div class="qr-display-box">
+                <div class="qr-frame" id="qrCanvasContainer">
+                  <canvas id="qrCanvas"></canvas>
+                  <div class="qr-scanner-line"></div>
+                </div>
+                <p class="qr-caption" id="qrCaptionText">Point your iPhone or Android camera at the QR code above</p>
+              </div>
+
+              <!-- Room Code & Quick Copy Bar -->
+              <div class="room-share-bar">
+                <div class="room-code-tag">
+                  <span class="room-code-label" id="roomCodeLabelText">Room Code:</span>
+                  <span class="room-code-digits" id="roomCodeDisplay">------</span>
+                </div>
+                <div class="room-link-box">
+                  <a class="room-url-text" id="shareUrlText" href="https://inthawnna.pages.dev" target="_blank" rel="noopener noreferrer">https://inthawnna.pages.dev</a>
+                  <button class="copy-url-btn" id="copyShareUrlBtn" title="Copy Live Pairing Link">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                    <span id="copyShareUrlText">Copy</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Paired Peers List -->
+              <div class="paired-peers-card" id="pairedPeersCard" style="display: none;">
+                <h4 id="pairedPeersHeading">Connected Peers</h4>
+                <div class="peers-list" id="pairedPeersList"></div>
+              </div>
+
+              <!-- Quick Instruction Steps -->
+              <div class="guide-steps">
+                <div class="guide-step">
+                  <span class="step-badge">1</span>
+                  <div class="step-text">
+                    <strong id="guideStep1Title">Local Wi-Fi or Hotspot</strong>
+                    <span id="guideStep1Desc">Keep Phone and PC on the same Wi-Fi or mobile hotspot for top speed (30–80+ MB/s).</span>
+                  </div>
+                </div>
+                <div class="guide-step">
+                  <span class="step-badge">2</span>
+                  <div class="step-text">
+                    <strong id="guideStep2Title">Scan QR Code</strong>
+                    <span id="guideStep2Desc">Scan the QR code with your phone camera to open Inthawnna directly in the browser.</span>
+                  </div>
+                </div>
+                <div class="guide-step">
+                  <span class="step-badge">3</span>
+                  <div class="step-text">
+                    <strong id="guideStep3Title">Beam Files</strong>
+                    <span id="guideStep3Desc">Send photos, 4K videos, and documents instantly with zero file size limits.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Join Another Room Box (Manual Room Code or In-App Scanner) -->
+            <div class="card pairing-card join-box">
+              <div class="card-header">
+                <h3 class="card-title" id="joinCardTitle">Join a Room</h3>
+                <span class="card-subtitle" id="joinCardSubtitle">Connect to another PC or phone using their Room Code</span>
+              </div>
+
+              <div class="join-form">
+                <div class="input-group">
+                  <input type="text" id="joinRoomCodeInput" placeholder="Room Code (e.g. 222222)" maxlength="16">
+                  <button class="btn-glow primary-btn" id="joinRoomBtn">
+                    <span id="joinRoomBtnText">Connect</span>
+                  </button>
+                </div>
+
+                <div class="join-divider">
+                  <span id="joinDividerText">OR</span>
+                </div>
+
+                <button class="btn-glow secondary-btn full-width" id="startCameraScanBtn">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                  </svg>
+                  <span id="startCameraScanText">Scan QR with Camera</span>
+                </button>
+
+                <!-- Camera QR Scanner Viewport -->
+                <div class="camera-scanner-wrapper" id="cameraScannerWrapper" style="display: none;">
+                  <video id="scannerVideo" playsinline></video>
+                  <div class="scanner-crosshair"></div>
+                  <button class="btn-glow danger mini-close-btn" id="stopCameraScanBtn">
+                    <span id="stopCameraScanText">Stop Camera</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Station 2: Send Files Tab -->
+        <section class="tab-pane" id="transferTab">
+          <!-- Connection Warning Banner (Shown if no peer is paired yet) -->
+          <div class="notice-banner" id="noPeerNotice">
+            <div class="notice-content">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span>No phone or peer paired yet. Scan the QR code or enter the Room Code to pair instantly.</span>
+            </div>
+            <button class="notice-action-btn" id="openPairingBtn">View QR Code ➔</button>
+          </div>
+
+          <!-- Staged Transfer Box -->
+          <div class="card dropzone-card" id="dropZone">
+            <div class="dropzone-inner">
+              <div class="dropzone-icon-wrap">
+                <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <h2 class="dropzone-title" id="dropzoneTitle">Drop files or photos here</h2>
+              <p class="dropzone-subtitle" id="dropzoneSubtitle">Direct peer-to-peer streaming • No file size limits</p>
+
+              <!-- Upload Source Buttons -->
+              <div class="action-btn-row">
+                <label class="btn-glow primary-btn" for="mediaFileInput">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <span id="mediaBtnText">Photos & Videos</span>
+                  <input type="file" id="mediaFileInput" accept="image/*,video/*" multiple class="hidden-input">
+                </label>
+
+                <label class="btn-glow camera-btn" for="cameraFileInput" id="cameraBtnLabel" title="Direct Camera Capture">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                  </svg>
+                  <span id="cameraBtnText">Camera</span>
+                  <input type="file" id="cameraFileInput" accept="image/*,video/*" capture="environment" class="hidden-input">
+                </label>
+
+                <label class="btn-glow secondary-btn" for="docFileInput">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                  <span id="docBtnText">Any Document</span>
+                  <input type="file" id="docFileInput" multiple class="hidden-input">
+                </label>
+
+                <label class="btn-glow tertiary-btn" for="folderInput" id="folderInputLabel">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                  <span id="folderBtnText">Folder</span>
+                  <input type="file" id="folderInput" webkitdirectory directory multiple class="hidden-input">
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Staged Files List (When files are selected) -->
+          <div class="card queue-card" id="stagedQueueCard" style="display: none;">
+            <div class="card-header">
+              <div class="header-left">
+                <h3 class="card-title">Staged Files</h3>
+                <span class="badge" id="stagedCountLabel">0 files</span>
+                <span class="badge muted" id="stagedTotalSizeLabel">0 MB</span>
+              </div>
+              <div class="header-actions">
+                <button class="text-btn danger" id="clearQueueBtn">Clear All</button>
+                <button class="btn-glow primary-btn send-btn" id="startSendBtn">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                  <span>THAWN RAWH</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="file-queue-list" id="stagedFileList"></div>
+          </div>
+
+          <!-- Active Transfer Monitor Card -->
+          <div class="card monitor-card" id="activeTransferCard" style="display: none;">
+            <div class="monitor-header">
+              <div class="monitor-title-wrap">
+                <div class="transfer-spinner"></div>
+                <div>
+                  <h4 class="monitor-filename" id="transferFileName">Sending...</h4>
+                  <span class="monitor-sub" id="transferPeerInfo">Direct P2P Link</span>
+                </div>
+              </div>
+              <div class="monitor-stats">
+                <span class="speed-pill" id="transferSpeed">0 MB/s</span>
+                <span class="percent-pill" id="transferPercent">0%</span>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-track">
+              <div class="progress-bar" id="transferProgressBar" style="width: 0%;"></div>
+            </div>
+
+            <div class="monitor-footer">
+              <span id="transferBytes">0 MB / 0 MB</span>
+              <span id="transferEta">Calculating ETA...</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Station 2: Received Files Tab -->
+        <section class="tab-pane" id="receivedTab">
+          <div class="card received-card">
+            <div class="card-header">
+              <div class="header-left">
+                <h3 class="card-title" id="receivedCardTitle">Received Files</h3>
+                <span class="badge highlight" id="receivedCountLabel">0</span>
+              </div>
+              <div class="header-actions">
+                <button class="btn-glow secondary-btn" id="downloadAllZipBtn" style="display: none;">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  </svg>
+                  <span id="downloadZipLabel">Download All as ZIP</span>
+                </button>
+                <button class="text-btn danger" id="clearReceivedBtn" style="display: none;">Clear</button>
+              </div>
+            </div>
+
+            <!-- Search, Filter & Sort Toolbar -->
+            <div class="received-toolbar" id="receivedToolbar" style="display: none;">
+              <div class="search-sort-row">
+                <div class="search-input-wrap">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input type="text" id="receivedSearchInput" placeholder="Search received files...">
+                  <button class="search-clear-btn" id="searchClearBtn" title="Clear search">×</button>
+                </div>
+                <div class="sort-select-wrap">
+                  <select id="receivedSortSelect" title="Sort files">
+                    <option value="newest" id="optSortNewest">Newest first</option>
+                    <option value="oldest" id="optSortOldest">Oldest first</option>
+                    <option value="largest" id="optSortLargest">Largest first</option>
+                    <option value="smallest" id="optSortSmallest">Smallest first</option>
+                  </select>
+                </div>
+              </div>
+              <div class="filter-chips-row" id="filterChipsRow">
+                <button class="filter-chip active" data-filter="all" id="chipAll">All</button>
+                <button class="filter-chip" data-filter="image" id="chipPhotos">Photos 🖼️</button>
+                <button class="filter-chip" data-filter="video" id="chipVideos">Videos 🎬</button>
+                <button class="filter-chip" data-filter="document" id="chipDocs">Docs 📄</button>
+                <button class="filter-chip" data-filter="audio" id="chipAudio">Audio 🎵</button>
+                <button class="filter-chip" data-filter="archive" id="chipArchives">Archives 📦</button>
+              </div>
+            </div>
+
+            <!-- Batch Selection Action Bar -->
+            <div class="batch-action-bar" id="batchActionBar" style="display: none;">
+              <div class="batch-left">
+                <label class="batch-select-all">
+                  <input type="checkbox" id="selectAllCheckbox">
+                  <span id="selectAllLabel">Select All</span>
+                </label>
+                <span class="batch-count-badge" id="selectedCountBadge">0 selected</span>
+              </div>
+              <div class="batch-right">
+                <button class="btn-glow primary-btn mini" id="downloadSelectedZipBtn"><span id="downloadSelectedZipLabel">Download ZIP</span></button>
+                <button class="text-btn danger" id="deleteSelectedBtn"><span id="deleteSelectedLabel">Delete</span></button>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="receivedEmptyState">
+              <div class="empty-icon-wrap">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </div>
+              <h4 id="emptyReceivedTitle">No files received yet</h4>
+              <p id="emptyReceivedSub">Files beamed from your phone or paired peer will show up here with instant previews.</p>
+            </div>
+
+            <!-- Received Files Gallery -->
+            <div class="received-grid" id="receivedFilesGrid"></div>
+          </div>
+        </section>
+
+        <!-- Station 3: Clipboard Sync Tab -->
+        <section class="tab-pane" id="clipboardTab">
+          <div class="card clipboard-card">
+            <div class="card-header">
+              <h3 class="card-title" id="clipCardTitle">Instant Clipboard Sync</h3>
+              <span class="card-subtitle" id="clipCardSubtitle">Share links, text, and notes between phone & PC</span>
+            </div>
+
+            <div class="clipboard-input-box">
+              <textarea id="clipboardInput" placeholder="Type or paste text, links, or notes here to beam to your paired device..."></textarea>
+              <div class="clipboard-actions">
+                <button class="btn-glow primary-btn" id="sendClipboardBtn">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                  <span id="beamTextBtnLabel">Beam Text</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Synced Clipboard History -->
+            <div class="clipboard-history">
+              <div class="history-header">
+                <h4 id="syncedNotesHeading">Synced Notes</h4>
+                <button class="text-btn" id="clearClipboardHistoryBtn"><span id="clearClipboardHistoryText">Clear</span></button>
+              </div>
+              <div class="clipboard-list" id="clipboardList">
+                <div class="empty-mini" id="emptyNotesMsg">No notes shared yet. Send some text above!</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Station 5: About Tab -->
+        <section class="tab-pane" id="aboutTab">
+          <div class="card about-card">
+            <div class="about-hero">
+              <div class="about-logo-wrap">
+                <img src="icon.png" alt="Inthawnna Icon" class="about-app-icon">
+              </div>
+              <h2 class="about-title" id="aboutTitle">Inthawnna</h2>
+              <span class="about-badge" id="aboutBadge">P2P File Transfer • Web Edition</span>
+            </div>
+
+            <div class="about-content-box">
+              <!-- Mizo message (Shown only when MZ selected) -->
+              <div class="about-message-block mizo-block" id="aboutMizoBlock">
+                <p class="about-text-lead">
+                  He portal hi a thlawna hman tura siam a ni a, i duh tawkin lo hmang rawh le.
+                </p>
+                <p class="about-text-lead">
+                  Khawvel khawi hmun atang pawhin (WiFi inang, WiFi hrang emaw mobile data 4G/5G hmangin) he portal hi direct-in i hmang thei e.
+                </p>
+                <p class="about-subtext">
+                  A siamtu i support duh anih chuan:
+                </p>
+              </div>
+
+              <!-- English message (Shown only when EN selected) -->
+              <div class="about-message-block eng-block" id="aboutEngBlock">
+                <p class="about-text-lead">
+                  This portal is completely free to use, go ahead and use it as much as you want!
+                </p>
+                <p class="about-text-lead">
+                  Works worldwide across any network: same Wi-Fi, different Wi-Fi, or mobile data (4G/5G) with global TURN relay support.
+                </p>
+                <p class="about-subtext">
+                  If you want to support the developer:
+                </p>
+              </div>
+
+              <!-- UPI ID Highlight Box with Copy Button -->
+              <div class="upi-card">
+                <div class="upi-left">
+                  <div class="upi-icon-badge">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="4" width="20" height="16" rx="2"/>
+                      <line x1="2" y1="10" x2="22" y2="10"/>
+                    </svg>
+                  </div>
+                  <div class="upi-info">
+                    <span class="upi-label" id="upiLabelText">UPI ID</span>
+                    <strong class="upi-id-text" id="upiIdValue">muantea45-1@oksbi</strong>
+                  </div>
+                </div>
+
+                <div class="upi-actions">
+                  <button class="btn-glow primary-btn mini" id="copyUpiBtn" title="Copy UPI ID">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                    <span id="copyUpiText">Copy UPI ID</span>
+                  </button>
+                  <a href="upi://pay?pa=muantea45-1@oksbi&pn=Muantea&cu=INR" class="btn-glow secondary-btn mini upi-pay-link" id="payUpiLink" title="Open UPI app (Google Pay / PhonePe / Paytm / BHIM)">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="7" y1="17" x2="17" y2="7"/>
+                      <polyline points="7 7 17 7 17 17"/>
+                    </svg>
+                    <span id="payUpiText">Pay with UPI</span>
+                  </a>
+                </div>
+              </div>
+
+              <!-- Highlights / Spec Grid -->
+              <div class="about-highlights-grid" id="aboutHighlightsGrid">
+                <div class="highlight-item">
+                  <div class="highlight-bullet">🔒</div>
+                  <div>
+                    <strong id="aboutH1Title">100% Private P2P</strong>
+                    <span id="aboutH1Desc">Direct browser-to-browser encryption. Zero files uploaded to any server.</span>
+                  </div>
+                </div>
+                <div class="highlight-item">
+                  <div class="highlight-bullet">⚡</div>
+                  <div>
+                    <strong id="aboutH2Title">Full Wi-Fi Speeds</strong>
+                    <span id="aboutH2Desc">High throughput WebRTC DataChannels at 30–80+ MB/s.</span>
+                  </div>
+                </div>
+                <div class="highlight-item">
+                  <div class="highlight-bullet">📱</div>
+                  <div>
+                    <strong id="aboutH3Title">Zero App Needed</strong>
+                    <span id="aboutH3Desc">Works directly in browser on Android, iPhone, PC, Mac, Linux.</span>
+                  </div>
+                </div>
+                <div class="highlight-item">
+                  <div class="highlight-bullet">📂</div>
+                  <div>
+                    <strong id="aboutH4Title">Direct Auto-Save</strong>
+                    <span id="aboutH4Desc">Desktop Chromium folder picker streams files straight to your folder.</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Developer Attribution Box -->
+              <div class="about-dev-box" style="margin-top:20px;padding:14px 18px;background:#141418;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.85rem;color:var(--text-muted);text-align:center;">
+                <p id="aboutDevAttribution">This software is developed by <b>Muantea45@gmail.com</b>. Unauthorized modification, distribution, or reproduction is strictly prohibited.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Daily Transfer Stats Meter -->
+    <div class="daily-stats-meter" id="dailyStatsMeter">
+      <div class="daily-stats-left">
+        <span class="daily-stats-tag">Transfer Stats</span>
+        <span id="dailyStatsText">Today: 0 files (0 MB) beamed • Zero Cloud</span>
+      </div>
+      <div class="daily-stats-right">
+        <span id="liveStatusLink"><a href="https://inthawnna.pages.dev" target="_blank" rel="noopener noreferrer" style="color:var(--text-muted);text-decoration:none;">inthawnna.pages.dev</a></span>
+      </div>
+    </div>
+
+    <!-- Incoming Transfer Confirmation Modal -->
+    <div class="confirm-modal" id="confirmModal" style="display: none;">
+      <div class="confirm-backdrop"></div>
+      <div class="confirm-card">
+        <div class="confirm-icon-wrap">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <h3 class="confirm-title" id="confirmTitle">Incoming File</h3>
+        <p class="confirm-desc" id="confirmDesc">A paired device wants to beam a file to you:</p>
+        <div class="confirm-file-preview">
+          <span id="confirmFileName">file.png</span>
+          <strong id="confirmFileSize">0 MB</strong>
+        </div>
+        <div class="confirm-buttons">
+          <button class="btn-glow secondary-btn" id="confirmDeclineBtn">Decline</button>
+          <button class="btn-glow primary-btn" id="confirmAcceptBtn">Accept File</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Global Toast Notification Container -->
+    <div class="toast-shelf" id="toastShelf"></div>
+
+    <!-- Media Preview Lightbox Modal -->
+    <div class="lightbox-modal" id="lightboxModal" style="display: none;">
+      <div class="lightbox-backdrop" id="lightboxBackdrop"></div>
+      <div class="lightbox-dialog">
+        <button class="lightbox-close-btn" id="lightboxCloseBtn" title="Close Preview">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <div class="lightbox-media-container" id="lightboxMediaContainer"></div>
+        <div class="lightbox-bar">
+          <span class="lightbox-caption" id="lightboxCaption">Preview</span>
+          <button class="btn-glow primary-btn mini" id="lightboxDownloadBtn">Download</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Local Self-Contained Libraries -->
+  <script src="libs/peerjs.min.js"></script>
+  <script src="libs/qrcode.min.js"></script>
+  <script src="libs/jszip.min.js"></script>
+  <script src="app.js?v=2.1"></script>
+</body>
+</html>
