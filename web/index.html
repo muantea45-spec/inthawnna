@@ -95,20 +95,6 @@
               <span id="langLabel" class="lang-badge">MZ</span>
             </button>
 
-            <!-- Auto-Accept vs Confirmation Toggle -->
-            <label class="toggle-control" id="confirmToggleWrap" title="Confirmation for incoming transfers">
-              <input type="checkbox" id="confirmToggle">
-              <span class="toggle-track">
-                <span class="toggle-thumb"></span>
-              </span>
-              <span class="toggle-caption">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                </svg>
-                <span id="confirmToggleLabel">Confirm</span>
-              </span>
-            </label>
-
             <!-- Auto-Save Folder Picker (Desktop Chrome/Edge) -->
             <button class="action-mini-btn" id="folderPickerBtn" title="Choose auto-save folder for received files (Direct to PC hard drive)">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
@@ -684,30 +670,6 @@
       </div>
     </div>
 
-    <!-- Incoming Transfer Confirmation Modal -->
-    <div class="confirm-modal" id="confirmModal" style="display: none;">
-      <div class="confirm-backdrop"></div>
-      <div class="confirm-card">
-        <div class="confirm-icon-wrap">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-          </svg>
-        </div>
-        <h3 class="confirm-title" id="confirmTitle">Incoming File</h3>
-        <p class="confirm-desc" id="confirmDesc">A paired device wants to beam a file to you:</p>
-        <div class="confirm-file-preview">
-          <span id="confirmFileName">file.png</span>
-          <strong id="confirmFileSize">0 MB</strong>
-        </div>
-        <div class="confirm-buttons">
-          <button class="btn-glow secondary-btn" id="confirmDeclineBtn">Decline</button>
-          <button class="btn-glow primary-btn" id="confirmAcceptBtn">Accept File</button>
-        </div>
-      </div>
-    </div>
-
     <!-- Global Toast Notification Container -->
     <div class="toast-shelf" id="toastShelf"></div>
 
@@ -734,6 +696,6 @@
   <script src="libs/peerjs.min.js"></script>
   <script src="libs/qrcode.min.js"></script>
   <script src="libs/jszip.min.js"></script>
-  <script src="app.js?v=2.7"></script>
+  <script src="app.js?v=2.8"></script>
 </body>
 </html>

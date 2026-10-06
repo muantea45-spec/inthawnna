@@ -184,12 +184,7 @@ const I18N = {
     syncedNotes: 'Synced Notes',
     clearBtn: 'Clear',
     emptyNotes: 'No notes shared yet. Send some text above!',
-    confirmTitle: 'Incoming File Transfer',
-    confirmDesc: 'A connected peer wants to beam a file to you:',
-    acceptBtn: 'Accept File',
-    declineBtn: 'Decline',
     statsLabel: 'Today: {count} files ({bytes}) beamed • Zero Cloud',
-    confirmToggleLabel: 'Confirm',
     chimeLabel: 'Chime',
     aboutBadge: 'P2P File Transfer • Web Edition',
     copyUpiBtn: 'Copy UPI ID',
@@ -277,12 +272,7 @@ const I18N = {
     syncedNotes: 'Thu Dawnte',
     clearBtn: 'Tifai rawh',
     emptyNotes: 'Thu inthawn a la awm rih lo. A chungah khuan ziak la thawn rawh le!',
-    confirmTitle: 'File Dawn Tur A Awm',
-    confirmDesc: 'Device inzawm hian file rawn thawn che a tum e:',
-    acceptBtn: 'Lo Pawm Rawh',
-    declineBtn: 'Duh rih lo',
     statsLabel: 'Vawiin: file {count} ({bytes}) thawn a ni • Zero Cloud',
-    confirmToggleLabel: 'Confirm',
     chimeLabel: 'Tih rikna',
     aboutBadge: 'P2P File Inthawnna • Web Edition',
     copyUpiBtn: 'UPI ID Copy Rawh',
@@ -494,8 +484,6 @@ function setLanguage(lang) {
   // Sound & Confirm
   const soundLabel = document.getElementById('soundCaptionLabel');
   if (soundLabel) soundLabel.textContent = t.chimeLabel;
-  const confirmLabel = document.getElementById('confirmToggleLabel');
-  if (confirmLabel) confirmLabel.textContent = t.confirmToggleLabel;
 
   // ABOUT Tab
   const mizoBlock = document.getElementById('aboutMizoBlock');
@@ -758,7 +746,6 @@ class InthawnnaP2P {
     this.searchQuery = '';
     this.currentFilter = 'all';
     this.currentSort = 'newest';
-    this.askConfirmEnabled = localStorage.getItem('inthawnna_ask_confirm') === 'true';
   }
 
   async init() {
@@ -1119,16 +1106,8 @@ class InthawnnaP2P {
     }
   }
 
-  // --- Incoming File Processing & Confirmation Prompt ---
-  async handleIncomingFileMeta(meta) {
-    if (this.askConfirmEnabled) {
-      const accepted = await this.promptTransferConfirmation(meta.name, meta.size);
-      if (!accepted) {
-        showToast(`Declined: ${meta.name}`, 'info');
-        return;
-      }
-    }
-
+  // --- Incoming File Processing (Always Auto-Accept) ---
+  handleIncomingFileMeta(meta) {
     wakeLock.request();
     this.incomingTransfers.set(meta.fileId, {
       meta,
@@ -1139,44 +1118,6 @@ class InthawnnaP2P {
 
     document.getElementById('activeTransferCard').style.display = 'block';
     this.updateTransferProgress(meta.name, 0, meta.size, Date.now(), false);
-  }
-
-  promptTransferConfirmation(name, size) {
-    return new Promise((resolve) => {
-      const modal = document.getElementById('confirmModal');
-      const nameEl = document.getElementById('confirmFileName');
-      const sizeEl = document.getElementById('confirmFileSize');
-      const acceptBtn = document.getElementById('confirmAcceptBtn');
-      const declineBtn = document.getElementById('confirmDeclineBtn');
-      if (!modal) return resolve(true);
-
-      if (nameEl) nameEl.textContent = name;
-      if (sizeEl) sizeEl.textContent = formatBytes(size);
-      modal.style.display = 'flex';
-      sounds.playConnected();
-      haptics.warning();
-
-      const cleanup = () => {
-        modal.style.display = 'none';
-        acceptBtn?.removeEventListener('click', onAccept);
-        declineBtn?.removeEventListener('click', onDecline);
-      };
-
-      const onAccept = () => {
-        cleanup();
-        haptics.tap();
-        resolve(true);
-      };
-
-      const onDecline = () => {
-        cleanup();
-        haptics.tap();
-        resolve(false);
-      };
-
-      acceptBtn?.addEventListener('click', onAccept);
-      declineBtn?.addEventListener('click', onDecline);
-    });
   }
 
   async finalizeIncomingFile(fileId) {
@@ -1967,17 +1908,8 @@ class InthawnnaP2P {
       toggleLanguage();
     });
 
-    // Auto-Accept vs Confirmation toggle
-    const confirmToggle = document.getElementById('confirmToggle');
-    if (confirmToggle) {
-      confirmToggle.checked = this.askConfirmEnabled;
-      confirmToggle.addEventListener('change', (e) => {
-        this.askConfirmEnabled = e.target.checked;
-        localStorage.setItem('inthawnna_ask_confirm', this.askConfirmEnabled ? 'true' : 'false');
-        haptics.tap();
-        showToast(this.askConfirmEnabled ? 'Transfer confirmation turned ON' : 'Auto-accept enabled', 'info');
-      });
-    }
+    // Clear any legacy confirmation setting so auto-accept is always active
+    localStorage.removeItem('inthawnna_ask_confirm');
 
     // Direct Camera File Input
     document.getElementById('cameraFileInput')?.addEventListener('change', (e) => {
