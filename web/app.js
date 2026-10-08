@@ -196,7 +196,16 @@ const I18N = {
     aboutH3Title: 'Zero App Needed',
     aboutH3Desc: 'Works directly in browser on Android, iPhone, PC, Mac, Linux.',
     aboutH4Title: 'Direct Auto-Save',
-    aboutH4Desc: 'Desktop Chromium folder picker streams files straight to your folder.'
+    aboutH4Desc: 'Desktop Chromium folder picker streams files straight to your folder.',
+    nearbyCardTitle: 'Nearby Devices on Wi-Fi',
+    nearbyCardSubtitle: 'Auto-detecting phones & PCs on your local Wi-Fi',
+    rescanBtn: 'Rescan',
+    nearbyScanning: 'Scanning...',
+    nearbyEmptyText: 'Searching for devices on this Wi-Fi... Keep Inthawnna open on both devices.',
+    nearbyFoundCount: '{count} nearby device{s}',
+    nearbyConnectBtn: '⚡ Connect',
+    sharedDrawerToast: '📥 {count} file(s) received from System Share drawer!',
+    shareTextToast: '📋 Shared link/text received from phone!'
   },
   mz: {
     appName: 'Inthawnna',
@@ -284,7 +293,16 @@ const I18N = {
     aboutH3Title: 'App A Ngai Lo',
     aboutH3Desc: 'Android, iPhone, PC, Mac, Linux-ah browser atangin a tlang nghal vek.',
     aboutH4Title: 'Direct Auto-Save',
-    aboutH4Desc: 'File dawnte hi i device chhunga drive-ah a lut e.'
+    aboutH4Desc: 'File dawnte hi i device chhunga drive-ah a lut e.',
+    nearbyCardTitle: 'Device Hnaih Te (Wi-Fi Khata awm)',
+    nearbyCardSubtitle: 'I Wi-Fi khata phone leh computer awmte zawn mek a ni',
+    rescanBtn: 'Zawng Nawn Rawh',
+    nearbyScanning: 'Zawn mek...',
+    nearbyEmptyText: 'Device dang hmuh a la ni lo. Inthawnna hi device pahnihah hian lo hawng ve ve rawh le.',
+    nearbyFoundCount: 'Device {count} hmuh a ni',
+    nearbyConnectBtn: '⚡ Inzawm Tir Rawh',
+    sharedDrawerToast: '📥 System Share atangin file {count} lakluh a ni!',
+    shareTextToast: '📋 Thu / Link inthawn lakluh a ni!'
   }
 };
 
@@ -356,6 +374,17 @@ function setLanguage(lang) {
   if (copyShareUrlText) copyShareUrlText.textContent = t.copyBtn;
   const pairedPeersHeading = document.getElementById('pairedPeersHeading');
   if (pairedPeersHeading) pairedPeersHeading.textContent = t.connectedPeers;
+
+  // Nearby Devices Card (Station 1A)
+  const nearbyCardTitle = document.getElementById('nearbyCardTitle');
+  if (nearbyCardTitle) nearbyCardTitle.textContent = t.nearbyCardTitle;
+  const nearbyCardSubtitle = document.getElementById('nearbyCardSubtitle');
+  if (nearbyCardSubtitle) nearbyCardSubtitle.textContent = t.nearbyCardSubtitle;
+  const rescanBtnText = document.getElementById('rescanBtnText');
+  if (rescanBtnText) rescanBtnText.textContent = t.rescanBtn;
+  if (window.inthawnna?.lanDiscovery) {
+    window.inthawnna.lanDiscovery.renderUI();
+  }
 
   // Guide Steps
   const g1Title = document.getElementById('guideStep1Title');
@@ -716,6 +745,473 @@ function triggerDownload(url, filename) {
   document.body.removeChild(a);
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Fast FNV-1a polynomial hash for network gateway signature
+function hashNetworkKey(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).slice(0, 8);
+}
+
+// ==========================================================================
+// 3B. LAN Auto-Discovery & Web Share Target Manager
+// ==========================================================================
+class LanDiscoveryManager {
+  constructor(p2p) {
+    this.p2p = p2p;
+    this.device = this.detectDeviceInfo();
+    this.networkHash = null;
+    this.discoveredPeers = new Map(); // roomId -> { roomId, peerId, deviceName, deviceType, deviceIcon, lastSeen }
+    this.broadcastChannel = null;
+    this.beaconHub = null;
+    this.hubConnection = null;
+    this.isHubCoordinator = false;
+    this.heartbeatTimer = null;
+    this.localHttpTimer = null;
+  }
+
+  detectDeviceInfo() {
+    const ua = navigator.userAgent || '';
+    let name = 'My Device';
+    let type = 'desktop';
+    let icon = '💻';
+
+    if (/Windows/i.test(ua)) {
+      name = 'Windows PC';
+      type = 'desktop';
+      icon = '💻';
+    } else if (/Macintosh|Mac OS/i.test(ua)) {
+      name = 'MacBook';
+      type = 'desktop';
+      icon = '🖥️';
+    } else if (/Linux/i.test(ua) && !/Android/i.test(ua)) {
+      name = 'Linux PC';
+      type = 'desktop';
+      icon = '🐧';
+    } else if (/iPhone/i.test(ua)) {
+      name = 'iPhone';
+      type = 'mobile';
+      icon = '📱';
+    } else if (/iPad/i.test(ua)) {
+      name = 'iPad';
+      type = 'tablet';
+      icon = '📱';
+    } else if (/Android/i.test(ua)) {
+      name = 'Android Phone';
+      type = 'mobile';
+      icon = '📱';
+    }
+
+    const saved = localStorage.getItem('inthawnna_device_name');
+    if (saved && saved.trim()) {
+      name = saved.trim();
+    }
+    return { name, type, icon };
+  }
+
+  getMyPeerInfo() {
+    return {
+      roomId: this.p2p.roomId,
+      peerId: this.p2p.peerId,
+      deviceName: this.device.name,
+      deviceType: this.device.type,
+      deviceIcon: this.device.icon,
+      isHost: this.p2p.isHost,
+      lastSeen: Date.now()
+    };
+  }
+
+  async init() {
+    // 1. Setup Web Share Target & Service Worker
+    this.setupServiceWorkerAndShareTarget();
+
+    // 2. Setup BroadcastChannel for instant local discovery
+    this.setupBroadcastChannel();
+
+    // 3. Setup UI rescan button
+    const refreshBtn = document.getElementById('refreshNearbyBtn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        haptics.tap();
+        this.rescan();
+      });
+    }
+
+    // 4. Resolve Wi-Fi network signature (shared public NAT IP hash)
+    await this.resolveNetworkHash();
+
+    // 5. Connect to local server discovery API (Offline Mobile Hotspot mode)
+    this.startLocalHttpDiscovery();
+
+    // 6. Connect to PeerJS LAN Beacon mesh
+    this.startPeerBeacon();
+
+    // Render initial UI state
+    this.renderUI();
+  }
+
+  setupServiceWorkerAndShareTarget() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .then((reg) => {
+          console.log('[PWA] Service Worker active:', reg.scope);
+        })
+        .catch((err) => {
+          console.warn('[PWA] Service worker registration note:', err);
+        });
+
+      // Listen for notification from SW when files are received via Android Share drawer
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'PENDING_SHARED_FILES_READY') {
+          this.checkPendingSharedItems();
+        }
+      });
+    }
+
+    // Check for pending shared files on startup or if redirected with ?shared=true
+    this.checkPendingSharedItems();
+  }
+
+  async checkPendingSharedItems() {
+    try {
+      const db = await this.openShareDB();
+      const tx = db.transaction('incoming_shares', 'readwrite');
+      const store = tx.objectStore('incoming_shares');
+      const getAllReq = store.getAll();
+
+      getAllReq.onsuccess = () => {
+        const records = getAllReq.result || [];
+        if (records.length === 0) return;
+
+        let totalFilesAdded = 0;
+        const stagedFiles = [];
+        let sharedTextSnippet = '';
+
+        for (const record of records) {
+          if (record.files && record.files.length > 0) {
+            for (const f of record.files) {
+              const fileObj = new File([f.blob], f.name, {
+                type: f.type || 'application/octet-stream',
+                lastModified: f.lastModified || Date.now()
+              });
+              stagedFiles.push(fileObj);
+              totalFilesAdded++;
+            }
+          }
+          if (record.text || record.url) {
+            const parts = [record.title, record.text, record.url].filter(Boolean);
+            sharedTextSnippet += (sharedTextSnippet ? '\n\n' : '') + parts.join('\n');
+          }
+          // Remove processed record
+          store.delete(record.id);
+        }
+
+        if (stagedFiles.length > 0) {
+          this.p2p.stageFiles(stagedFiles);
+          sounds.playSuccess();
+          const t = I18N[currentLang] || I18N.en;
+          showToast(t.sharedDrawerToast.replace('{count}', totalFilesAdded), 'success');
+        }
+
+        if (sharedTextSnippet) {
+          const clipInput = document.getElementById('clipboardInput');
+          if (clipInput) {
+            clipInput.value = (clipInput.value ? clipInput.value + '\n\n' : '') + sharedTextSnippet;
+          }
+          if (stagedFiles.length === 0) {
+            this.p2p.switchTab('clipboardTab');
+          }
+          const t = I18N[currentLang] || I18N.en;
+          showToast(t.shareTextToast, 'info');
+        }
+
+        if (window.location.search.includes('shared=true')) {
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      };
+    } catch (e) {
+      console.warn('[ShareTarget] Could not read shared items DB:', e);
+    }
+  }
+
+  openShareDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('inthawnna_share_store', 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('incoming_shares')) {
+          db.createObjectStore('incoming_shares', { keyPath: 'id', autoIncrement: true });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  setupBroadcastChannel() {
+    try {
+      this.broadcastChannel = new BroadcastChannel('inthawnna_lan_presence');
+      this.broadcastChannel.onmessage = (event) => {
+        const data = event.data;
+        if (!data || data.peerId === this.p2p.peerId || data.roomId === this.p2p.roomId) return;
+
+        if (data.type === 'lan_announce') {
+          this.recordDiscoveredPeer(data.peer);
+        } else if (data.type === 'lan_query') {
+          this.broadcastMyPresence();
+        }
+      };
+
+      this.broadcastChannel.postMessage({ type: 'lan_query' });
+
+      setInterval(() => {
+        this.broadcastMyPresence();
+      }, 4000);
+    } catch (e) {}
+  }
+
+  broadcastMyPresence() {
+    if (this.broadcastChannel && this.p2p.roomId) {
+      this.broadcastChannel.postMessage({
+        type: 'lan_announce',
+        peer: this.getMyPeerInfo()
+      });
+    }
+  }
+
+  async resolveNetworkHash() {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ip) {
+          this.networkHash = hashNetworkKey(data.ip.trim());
+          return;
+        }
+      }
+    } catch (e) {}
+
+    this.networkHash = hashNetworkKey(window.location.hostname || 'local-wifi');
+  }
+
+  startLocalHttpDiscovery() {
+    const checkLocalApi = async () => {
+      try {
+        const announceRes = await fetch('./api/lan/announce', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.getMyPeerInfo())
+        });
+        if (announceRes.ok) {
+          const peersRes = await fetch('./api/lan/peers');
+          if (peersRes.ok) {
+            const data = await peersRes.json();
+            if (data.peers && Array.isArray(data.peers)) {
+              for (const p of data.peers) {
+                if (p.roomId !== this.p2p.roomId && p.peerId !== this.p2p.peerId) {
+                  this.recordDiscoveredPeer(p);
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    };
+
+    checkLocalApi();
+    this.localHttpTimer = setInterval(checkLocalApi, 5000);
+  }
+
+  startPeerBeacon() {
+    if (!this.networkHash || !this.p2p.peer) {
+      setTimeout(() => this.startPeerBeacon(), 1200);
+      return;
+    }
+
+    const hubId = `inth-lan-${this.networkHash}-hub`;
+
+    if (this.p2p.isHost) {
+      try {
+        this.beaconHub = new Peer(hubId, this.p2p.getPeerConfig());
+
+        this.beaconHub.on('open', () => {
+          this.isHubCoordinator = true;
+          this.beaconHub.on('connection', (conn) => {
+            conn.on('data', (data) => {
+              if (data?.type === 'lan_register' && data.peer) {
+                this.recordDiscoveredPeer(data.peer);
+                conn.send({
+                  type: 'lan_peer_list',
+                  peers: Array.from(this.discoveredPeers.values())
+                });
+              }
+            });
+          });
+        });
+
+        this.beaconHub.on('error', (err) => {
+          if (err.type === 'unavailable-id') {
+            this.isHubCoordinator = false;
+            this.connectToHub(hubId);
+          }
+        });
+      } catch (e) {
+        this.connectToHub(hubId);
+      }
+    } else {
+      this.connectToHub(hubId);
+    }
+  }
+
+  connectToHub(hubId) {
+    if (!this.p2p.peer || this.p2p.peer.destroyed || this.hubConnection) return;
+    try {
+      const conn = this.p2p.peer.connect(hubId, { reliable: true });
+      this.hubConnection = conn;
+
+      conn.on('open', () => {
+        conn.send({
+          type: 'lan_register',
+          peer: this.getMyPeerInfo()
+        });
+      });
+
+      conn.on('data', (data) => {
+        if (data?.type === 'lan_peer_list' && Array.isArray(data.peers)) {
+          for (const p of data.peers) {
+            if (p.roomId !== this.p2p.roomId && p.peerId !== this.p2p.peerId) {
+              this.recordDiscoveredPeer(p);
+            }
+          }
+        }
+      });
+
+      conn.on('close', () => {
+        this.hubConnection = null;
+      });
+
+      conn.on('error', () => {
+        this.hubConnection = null;
+      });
+    } catch (e) {}
+  }
+
+  recordDiscoveredPeer(peer) {
+    if (!peer || !peer.roomId || peer.roomId === this.p2p.roomId) return;
+    if (this.p2p.connections && this.p2p.connections.size > 0) {
+      for (const [connPeerId] of this.p2p.connections) {
+        if (connPeerId.includes(peer.roomId)) return;
+      }
+    }
+
+    this.discoveredPeers.set(peer.roomId, {
+      ...peer,
+      lastSeen: Date.now()
+    });
+    this.renderUI();
+  }
+
+  rescan() {
+    this.discoveredPeers.clear();
+    this.renderUI();
+    this.broadcastMyPresence();
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage({ type: 'lan_query' });
+    }
+    const hubId = `inth-lan-${this.networkHash}-hub`;
+    this.connectToHub(hubId);
+    showToast('Scanning local Wi-Fi for nearby devices...', 'info');
+  }
+
+  connectToPeer(roomId) {
+    haptics.tap();
+    sounds.playConnected();
+    showToast(`Connecting to Room ${roomId}...`, 'info');
+
+    window.location.hash = `room=${roomId}`;
+    window.location.reload();
+  }
+
+  renderUI() {
+    const listEl = document.getElementById('nearbyPeersGrid');
+    const badgeEl = document.getElementById('nearbyDeviceCountBadge');
+    if (!listEl || !badgeEl) return;
+
+    const t = I18N[currentLang] || I18N.en;
+
+    const now = Date.now();
+    for (const [roomId, p] of this.discoveredPeers.entries()) {
+      if (now - (p.lastSeen || 0) > 25000) {
+        this.discoveredPeers.delete(roomId);
+      }
+    }
+
+    const peers = Array.from(this.discoveredPeers.values()).filter(p => {
+      return p.roomId !== this.p2p.roomId && p.peerId !== this.p2p.peerId;
+    });
+
+    if (peers.length === 0) {
+      badgeEl.textContent = t.nearbyScanning;
+      badgeEl.classList.remove('found');
+      listEl.innerHTML = `
+        <div class="nearby-empty-state" id="nearbyEmptyState">
+          <div class="pulse-mini-radar"></div>
+          <span id="nearbyEmptyText">${t.nearbyEmptyText}</span>
+        </div>
+      `;
+      return;
+    }
+
+    badgeEl.textContent = t.nearbyFoundCount.replace('{count}', peers.length);
+    badgeEl.classList.add('found');
+
+    listEl.innerHTML = peers.map(p => `
+      <div class="nearby-peer-item" data-room="${p.roomId}">
+        <div class="nearby-peer-left">
+          <div class="nearby-peer-avatar">
+            <span class="avatar-icon">${p.deviceIcon || '💻'}</span>
+            <span class="avatar-pulse-dot"></span>
+          </div>
+          <div class="nearby-peer-details">
+            <div class="nearby-peer-name-row">
+              <strong class="nearby-peer-name">${escapeHtml(p.deviceName || 'Nearby Device')}</strong>
+              <span class="nearby-tag-pill">Same Wi-Fi</span>
+            </div>
+            <span class="nearby-peer-meta">Room #${p.roomId} • Tap to connect</span>
+          </div>
+        </div>
+        <button class="btn-glow primary-btn mini connect-peer-btn" data-room="${p.roomId}">
+          <span>${t.nearbyConnectBtn}</span>
+        </button>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.connect-peer-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetRoom = btn.getAttribute('data-room');
+        if (targetRoom) {
+          btn.classList.add('connecting');
+          btn.innerHTML = '<span>Connecting...</span>';
+          this.connectToPeer(targetRoom);
+        }
+      });
+    });
+  }
+}
+
 // ==========================================================================
 // 4. Inthawnna WebRTC P2P Manager
 // ==========================================================================
@@ -746,6 +1242,7 @@ class InthawnnaP2P {
     this.searchQuery = '';
     this.currentFilter = 'all';
     this.currentSort = 'newest';
+    this.lanDiscovery = null;
   }
 
   async init() {
@@ -772,6 +1269,10 @@ class InthawnnaP2P {
 
     this.setupUIHandlers();
     this.renderRoomCode();
+
+    // 2. Initialize LAN Auto-Discovery & Web Share Target Manager
+    this.lanDiscovery = new LanDiscoveryManager(this);
+    this.lanDiscovery.init();
 
     // Auto-reconnect when user returns to this tab (e.g. from WhatsApp/locking screen)
     document.addEventListener('visibilitychange', () => {
@@ -1050,6 +1551,10 @@ class InthawnnaP2P {
       if (promptTitle) promptTitle.textContent = 'Pair your devices';
       if (promptDesc) promptDesc.textContent = 'Connect your devices to transfer files at maximum Wi-Fi speed. Scan the QR code below with your phone camera, or enter the 6-digit Room Code.';
       if (promptActions) promptActions.style.display = 'none';
+    }
+
+    if (this.lanDiscovery) {
+      this.lanDiscovery.renderUI();
     }
   }
 
