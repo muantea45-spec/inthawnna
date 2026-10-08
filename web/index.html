@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=2.5">
+  <link rel="stylesheet" href="style.css?v=2.4">
 </head>
 <body>
   <div class="app-root">
@@ -207,43 +207,6 @@
               <button class="btn-glow primary-btn mini" id="promptOpenTransferBtn">
                 <span>Open Send Files ➔</span>
               </button>
-            </div>
-          </div>
-
-          <!-- Station 1A: Nearby Devices on Local Wi-Fi (AirDrop / Nearby Share Auto-Discovery) -->
-          <div class="card nearby-discovery-card" id="nearbyDiscoveryCard">
-            <div class="nearby-header">
-              <div class="nearby-title-wrap">
-                <div class="nearby-radar-icon" id="nearbyRadarIcon">
-                  <span class="radar-ping"></span>
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="2"/>
-                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
-                  </svg>
-                </div>
-                <div class="nearby-text-group">
-                  <div class="nearby-title-row">
-                    <h3 class="nearby-card-title" id="nearbyCardTitle">Nearby Devices on Wi-Fi</h3>
-                    <span class="nearby-count-pill" id="nearbyDeviceCountBadge">Scanning...</span>
-                  </div>
-                  <p class="nearby-card-subtitle" id="nearbyCardSubtitle">Auto-detecting phones & PCs on your local Wi-Fi</p>
-                </div>
-              </div>
-              <button class="action-mini-btn" id="refreshNearbyBtn" title="Rescan Local Wi-Fi">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M23 4v6h-6"/>
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                </svg>
-                <span id="rescanBtnText">Rescan</span>
-              </button>
-            </div>
-
-            <!-- Discovered Peers Container -->
-            <div class="nearby-peers-grid" id="nearbyPeersGrid">
-              <div class="nearby-empty-state" id="nearbyEmptyState">
-                <div class="pulse-mini-radar"></div>
-                <span id="nearbyEmptyText">Searching for devices on this Wi-Fi... Keep Inthawnna open on both devices.</span>
-              </div>
             </div>
           </div>
 
@@ -733,6 +696,6 @@
   <script src="libs/peerjs.min.js"></script>
   <script src="libs/qrcode.min.js"></script>
   <script src="libs/jszip.min.js"></script>
-  <script src="app.js?v=3.0"></script>
+  <script src="app.js?v=2.8"></script>
 </body>
 </html>
