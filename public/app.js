@@ -208,11 +208,11 @@ const mobileI18n = {
     cardMediaTitle: 'Photos & Videos',
     cardMediaSub: 'Choose from Gallery',
     cardCameraTitle: 'Take Photo / Video',
-    cardCameraSub: 'Snap & Beam Instantly',
+    cardCameraSub: 'Snap & Send Instantly',
     cardDocTitle: 'Any File / Document',
     cardDocSub: 'PDF, ZIP, Music, APK, etc.',
     queueTitle: 'Transfer Queue',
-    queueEmpty: 'Select photos or files above to beam to your PC',
+    queueEmpty: 'Select photos or files above to send to your PC',
     recvTitle: 'Files from PC',
     recvSub: 'Download files staged by your computer.',
     recvEmpty: 'No files shared from PC yet.<br>Drop files into Inthawnna on your computer to see them here!',
@@ -221,7 +221,7 @@ const mobileI18n = {
     notesTitle: 'Clipboard & Text',
     notesSub: 'Send text, links, or notes instantly across devices.',
     sendTextHeader: 'Send Text to PC',
-    beamToPc: 'Beam to PC',
+    beamToPc: 'Send to PC',
     notesInputPlaceholder: 'Type or paste text/links here...',
     receivedTextHeader: 'Received from PC',
     copyBtn: 'Copy',
@@ -840,7 +840,7 @@ function setupEvents() {
       sendNoteBtn.textContent = 'Sent!';
       triggerHaptic();
       mobileChime.playSuccess();
-      setTimeout(() => { sendNoteBtn.textContent = mobileI18n[mobileLang]?.beamToPc || 'Beam to PC'; }, 1500);
+      setTimeout(() => { sendNoteBtn.textContent = mobileI18n[mobileLang]?.beamToPc || 'Send to PC'; }, 1500);
     }
   });
 

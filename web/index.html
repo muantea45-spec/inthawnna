@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Inthawnna — P2P File Transfer | Wireless Phone to PC</title>
   
-  <meta name="description" content="Inthawnna is a blazing-fast, private peer-to-peer file transfer web app. Beam photos, 4K videos, and files between phone and PC at full Wi-Fi speed with zero cloud uploads.">
+  <meta name="description" content="Inthawnna is a blazing-fast, private peer-to-peer file transfer web app. Send photos, 4K videos, and files between phone and PC at full Wi-Fi speed with zero cloud uploads.">
   <meta name="theme-color" content="#09090b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -37,7 +37,7 @@
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
         </div>
-        <h2 class="drop-title" id="dropOverlayTitle">Drop Files to Beam</h2>
+        <h2 class="drop-title" id="dropOverlayTitle">Drop Files to Send</h2>
         <p class="drop-sub" id="dropOverlaySub">Release anywhere to stage files</p>
       </div>
     </div>
@@ -196,17 +196,28 @@
               </div>
             </div>
 
+            <div class="prompt-actions" id="promptActions">
+              <button class="btn-glow primary-btn mini" id="promptOpenTransferBtn">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right: 5px; vertical-align: middle;">
+                  <path d="M12 19V5m-7 7l7-7 7 7"/>
+                </svg>
+                <span id="promptOpenTransferText">Send Files</span>
+              </button>
+              <button class="btn-glow secondary-btn mini" id="promptRetryPairBtn" style="display: none;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 4px; vertical-align: middle;">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                <span id="promptRetryPairText">Retry Pairing</span>
+              </button>
+            </div>
+
             <div class="prompt-body-block">
               <h2 class="prompt-title" id="promptTitle">Pair your devices</h2>
               <p class="prompt-desc" id="promptDesc">
                 Connect devices instantly to transfer files directly. Scan the QR code below with your phone camera, share the pairing link, or enter the 6-digit Room Code.
               </p>
-            </div>
-
-            <div class="prompt-actions" id="promptActions" style="display: none;">
-              <button class="btn-glow primary-btn mini" id="promptOpenTransferBtn">
-                <span>Open Send Files ➔</span>
-              </button>
             </div>
           </div>
 
@@ -272,7 +283,7 @@
                 <div class="guide-step">
                   <span class="step-badge">3</span>
                   <div class="step-text">
-                    <strong id="guideStep3Title">Beam Files</strong>
+                    <strong id="guideStep3Title">Send Files</strong>
                     <span id="guideStep3Desc">Send photos, 4K videos, and documents instantly with zero file size limits.</span>
                   </div>
                 </div>
@@ -438,6 +449,28 @@
               <span id="transferBytes">0 MB / 0 MB</span>
               <span id="transferEta">Calculating ETA...</span>
             </div>
+
+            <!-- Transfer Controls: Pause / Resume & Cancel -->
+            <div class="transfer-controls-bar" id="transferControlsBar">
+              <button class="btn-transfer-control pause-btn" id="transferPauseBtn" type="button" title="Pause or Resume Transfer">
+                <svg class="icon-pause" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <rect x="6" y="4" width="4" height="16" rx="1.5"></rect>
+                  <rect x="14" y="4" width="4" height="16" rx="1.5"></rect>
+                </svg>
+                <svg class="icon-resume" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="display: none;">
+                  <polygon points="6 4 20 12 6 20 6 4"></polygon>
+                </svg>
+                <span id="transferPauseLabel">Pause</span>
+              </button>
+
+              <button class="btn-transfer-control cancel-btn" id="transferCancelBtn" type="button" title="Cancel Transfer">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span id="transferCancelLabel">Cancel</span>
+              </button>
+            </div>
           </div>
         </section>
 
@@ -517,7 +550,7 @@
                 </svg>
               </div>
               <h4 id="emptyReceivedTitle">No files received yet</h4>
-              <p id="emptyReceivedSub">Files beamed from your phone or paired peer will show up here with instant previews.</p>
+              <p id="emptyReceivedSub">Files sent from your phone or paired peer will show up here with instant previews.</p>
             </div>
 
             <!-- Received Files Gallery -->
@@ -534,14 +567,14 @@
             </div>
 
             <div class="clipboard-input-box">
-              <textarea id="clipboardInput" placeholder="Type or paste text, links, or notes here to beam to your paired device..."></textarea>
+              <textarea id="clipboardInput" placeholder="Type or paste text, links, or notes here to send to your paired device..."></textarea>
               <div class="clipboard-actions">
                 <button class="btn-glow primary-btn" id="sendClipboardBtn">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="22" y1="2" x2="11" y2="13"></line>
                     <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                   </svg>
-                  <span id="beamTextBtnLabel">Beam Text</span>
+                  <span id="beamTextBtnLabel">Send Text</span>
                 </button>
               </div>
             </div>
@@ -666,7 +699,7 @@
     <div class="daily-stats-meter" id="dailyStatsMeter">
       <div class="daily-stats-left">
         <span class="daily-stats-tag">Transfer Stats</span>
-        <span id="dailyStatsText">Today: 0 files (0 MB) beamed • Zero Cloud</span>
+        <span id="dailyStatsText">Today: 0 files (0 MB) sent • Zero Cloud</span>
       </div>
     </div>
 

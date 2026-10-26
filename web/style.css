@@ -951,6 +951,59 @@ body::before {
   color: var(--text-dim);
 }
 
+.transfer-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-transfer-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-medium);
+  background: #27272a;
+  color: #f1f5f9;
+  cursor: pointer;
+  transition: var(--trans-fast);
+}
+
+.btn-transfer-control:hover {
+  background: #3f3f46;
+  border-color: #52525b;
+  transform: translateY(-1px);
+}
+
+.btn-transfer-control:active {
+  transform: translateY(0);
+}
+
+.btn-transfer-control.pause-btn.paused {
+  background: rgba(234, 179, 8, 0.18);
+  border-color: rgba(234, 179, 8, 0.5);
+  color: #facc15;
+}
+
+.btn-transfer-control.cancel-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+.btn-transfer-control.cancel-btn:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #ffffff;
+}
+
 /* ==========================================================================
    Received Files Grid & Gallery
    ========================================================================== */
@@ -2006,22 +2059,88 @@ a.room-url-text:hover {
     color: var(--text-dim);
   }
 
-  .prompt-title {
-    font-size: 1.08rem;
+  .pairing-prompt-banner {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    gap: 8px;
   }
 
-  .prompt-desc {
-    font-size: 0.80rem;
-    line-height: 1.4;
+  .prompt-header-row {
+    order: 1;
   }
 
   .prompt-actions {
+    order: 2;
+    display: flex !important;
+    gap: 8px;
     width: 100%;
+    margin: 4px 0 2px;
   }
 
   .prompt-actions button {
-    width: 100%;
+    flex: 1;
+    padding: 11px 16px;
+    font-size: 0.92rem;
+    font-weight: 700;
     justify-content: center;
+  }
+
+  .prompt-body-block {
+    order: 3;
+  }
+
+  .prompt-title {
+    font-size: 1.05rem;
+    margin-bottom: 3px;
+  }
+
+  .prompt-desc {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  /* Make transfer tab flex so staged queue card sits at upper part on mobile */
+  #transferTab.tab-pane.active {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .queue-card {
+    order: -1;
+    margin-bottom: 14px;
+  }
+
+  .queue-card .card-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .queue-card .header-actions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .queue-card .header-actions .send-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 11px 16px;
+    font-size: 0.92rem;
+  }
+
+  .transfer-controls-bar {
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .btn-transfer-control {
+    flex: 1;
+    justify-content: center;
+    padding: 9px 12px;
+    font-size: 0.86rem;
   }
 
   .app-main {

@@ -127,6 +127,7 @@ const I18N = {
     pairTitle: 'Pair your devices',
     pairDesc: 'Connect devices instantly to transfer files directly. Scan the QR code below with your phone camera, share the pairing link, or enter the 6-digit Room Code.',
     openSendBtn: 'Open Send Files ➔',
+    retryPairBtn: 'Retry Pairing',
     roomCodeLabel: 'Room Code:',
     scanWithPhone: 'Scan with Phone Camera',
     pointCamera: 'Point your iPhone or Android camera at the QR code above',
@@ -137,7 +138,7 @@ const I18N = {
     step1Desc: 'Keep Phone and PC on the same Wi-Fi or mobile hotspot for top speed (30–80+ MB/s).',
     step2Title: 'Scan QR Code',
     step2Desc: 'Scan the QR code with your phone camera to open Inthawnna directly in the browser.',
-    step3Title: 'Beam Files',
+    step3Title: 'Send Files',
     step3Desc: 'Send photos, 4K videos, and documents instantly with zero file size limits.',
     joinRoom: 'Join a Room',
     joinRoomSub: 'Connect to another PC or phone using their Room Code',
@@ -150,18 +151,18 @@ const I18N = {
     viewQrBtn: 'View QR Code ➔',
     dropTitle: 'Drop files or photos here',
     dropSub: 'Direct peer-to-peer streaming • No file size limits',
-    dropOverlayTitle: 'Drop Files to Beam',
+    dropOverlayTitle: 'Drop Files to Send',
     dropOverlaySub: 'Release anywhere to stage files',
     photosBtn: 'Photos & Videos',
     cameraBtn: 'Camera',
     docBtn: 'Files & Docs',
     folderBtn: 'Folder',
-    stagedTitle: 'Staged Files for Beam',
-    sendNowBtn: 'BEAM FILES',
+    stagedTitle: 'Staged Files to Send',
+    sendNowBtn: 'SEND FILES',
     clearAll: 'Clear All',
     receivedTitle: 'Received Files',
     noFilesRecv: 'No files received yet',
-    noFilesRecvSub: 'Files beamed from your phone or paired peer will show up here with instant previews.',
+    noFilesRecvSub: 'Files sent from your phone or paired peer will show up here with instant previews.',
     downloadAllZip: 'Download All as ZIP',
     downloadZip: 'Download ZIP',
     delete: 'Delete',
@@ -179,12 +180,12 @@ const I18N = {
     sortSmallest: 'Smallest first',
     clipTitle: 'Instant Clipboard Sync',
     clipSub: 'Share links, text, and notes between phone & PC',
-    clipPlaceholder: 'Type or paste text, links, or notes here to beam to your paired device...',
-    beamTextBtn: 'Beam Text',
+    clipPlaceholder: 'Type or paste text, links, or notes here to send to your paired device...',
+    beamTextBtn: 'Send Text',
     syncedNotes: 'Synced Notes',
     clearBtn: 'Clear',
     emptyNotes: 'No notes shared yet. Send some text above!',
-    statsLabel: 'Today: {count} files ({bytes}) beamed • Zero Cloud',
+    statsLabel: 'Today: {count} files ({bytes}) sent • Zero Cloud',
     chimeLabel: 'Chime',
     aboutBadge: 'P2P File Transfer • Web Edition',
     copyUpiBtn: 'Copy UPI ID',
@@ -215,6 +216,7 @@ const I18N = {
     pairTitle: 'I device te zawm tir rawh.',
     pairDesc: 'Direct Wi-Fi hmangin inzawm tir rawh. I phone camera hmangin QR code hi scan rawh, a nih loh pawhin Room Code 6-digit chhu rawh.',
     openSendBtn: 'File Thawnna Hawng Rawh ➔',
+    retryPairBtn: 'Thlunzawm nawn leh rawh',
     roomCodeLabel: 'Room Code:',
     scanWithPhone: 'Phone Camera-in Scan Rawh',
     pointCamera: 'I iPhone emaw Android camera-in a chunga QR code hi tin rawh',
@@ -345,6 +347,8 @@ function setLanguage(lang) {
 
   const promptOpenTransferText = document.getElementById('promptOpenTransferText');
   if (promptOpenTransferText) promptOpenTransferText.textContent = t.openSendBtn;
+  const promptRetryPairText = document.getElementById('promptRetryPairText');
+  if (promptRetryPairText) promptRetryPairText.textContent = t.retryPairBtn || 'Retry Pairing';
 
   const hostCardTitle = document.getElementById('hostCardTitle');
   if (hostCardTitle) hostCardTitle.textContent = t.scanWithPhone;
@@ -736,6 +740,11 @@ class InthawnnaP2P {
     // Active file transfers
     this.incomingTransfers = new Map(); // fileId -> { meta, chunks, receivedBytes, startTime }
     this.isSending = false;
+    this.isPaused = false;
+    this.isCancelled = false;
+    this.currentTransferFileId = null;
+    this.pauseStartTime = 0;
+    this.totalPausedDuration = 0;
 
     // Chunk size: 64KB for high throughput and wide mobile compatibility
     this.CHUNK_SIZE = 64 * 1024;
@@ -800,64 +809,41 @@ class InthawnnaP2P {
   getPeerConfig() {
     return {
       debug: 1,
-      pingInterval: 5000,
+      pingInterval: 3000,
       config: {
         iceServers: [
-          // Google STUN (primary & fastest worldwide)
+          // Google Anycast STUN servers (ultra-low latency global routing, sub-15ms)
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
           { urls: 'stun:stun2.l.google.com:19302' },
           { urls: 'stun:stun3.l.google.com:19302' },
           { urls: 'stun:stun4.l.google.com:19302' },
 
-          // Cloudflare & Twilio STUN
+          // Cloudflare Anycast STUN
           { urls: 'stun:stun.cloudflare.com:3478' },
-          { urls: 'stun:global.stun.twilio.com:3478' },
 
-          // Metered STUN
-          { urls: 'stun:openrelay.metered.ca:80' },
-          { urls: 'stun:stun.relay.metered.ca:80' },
-
-          // Open Relay TURN servers (bypasses Symmetric NAT, Carrier-Grade NAT on 4G/5G, and strict firewalls)
+          // Fast UDP TURN Relay fallback (handles mobile 4G/5G carrier grade NAT)
           {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
             credential: 'openrelayproject'
           },
           {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+            urls: 'turn:openrelay.metered.ca:443?transport=udp',
             username: 'openrelayproject',
             credential: 'openrelayproject'
           },
 
-          // Fallback global relay endpoints
+          // Secure TLS/TCP fallback relay (handles strict firewalls that block UDP)
           {
-            urls: 'turn:global.relay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turn:global.relay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turn:global.relay.metered.ca:443?transport=tcp',
+            urls: 'turns:openrelay.metered.ca:443?transport=tcp',
             username: 'openrelayproject',
             credential: 'openrelayproject'
           }
         ],
-        iceCandidatePoolSize: 10
+        iceCandidatePoolSize: 10,
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
       }
     };
   }
@@ -866,6 +852,10 @@ class InthawnnaP2P {
   async initPeerHost(roomCode) {
     this.updateStatus('Creating Room...', 'connecting');
     const hostPeerId = `inthawnna-${roomCode}-host`;
+
+    if (this.peer && !this.peer.destroyed) {
+      try { this.peer.destroy(); } catch (e) {}
+    }
 
     this.peer = new Peer(hostPeerId, this.getPeerConfig());
 
@@ -880,13 +870,33 @@ class InthawnnaP2P {
       this.handleIncomingConnection(conn);
     });
 
+    // Auto-reconnect if signaling socket drops due to idle timeout
+    this.peer.on('disconnected', () => {
+      console.warn('[PeerJS] Host disconnected from signaling broker. Auto-reconnecting...');
+      this.updateStatus(`Room ${roomCode} (Reconnecting...)`, 'connecting');
+      if (this.peer && !this.peer.destroyed) {
+        try {
+          this.peer.reconnect();
+        } catch (e) {
+          console.warn('[PeerJS] Reconnect error:', e);
+        }
+      }
+    });
+
     this.peer.on('error', (err) => {
-      console.warn('Peer error:', err);
+      console.warn('Host peer error:', err);
       if (err.type === 'unavailable-id') {
         // Collision: pick another code and retry
         this.roomId = Math.floor(100000 + Math.random() * 900000).toString();
         this.renderRoomCode();
         this.initPeerHost(this.roomId);
+      } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
+        this.updateStatus('Reconnecting...', 'connecting');
+        setTimeout(() => {
+          if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
+            try { this.peer.reconnect(); } catch (e) {}
+          }
+        }, 1500);
       } else {
         this.updateStatus('Offline / Retry', 'connecting');
         showToast('Connection note: ' + err.type, 'danger');
@@ -895,51 +905,114 @@ class InthawnnaP2P {
   }
 
   // --- Client Mode Initialization ---
-  async initPeerClient(roomCode) {
-    this.updateStatus(`Connecting to ${roomCode}...`, 'connecting');
+  async initPeerClient(roomCode, retryCount = 0) {
+    const maxRetries = 6;
+    this.clientRetryCount = retryCount;
+    this.isConnecting = true;
+
+    // Keep mobile screen awake while connecting/pairing
+    try { wakeLock.request(); } catch (e) {}
+
     const promptPillText = document.getElementById('promptPillText');
     const promptTitle = document.getElementById('promptTitle');
     const promptDesc = document.getElementById('promptDesc');
-    if (promptPillText) promptPillText.textContent = `Connecting to Room ${roomCode}...`;
+    const promptActions = document.getElementById('promptActions');
+    const retryBtn = document.getElementById('promptRetryPairBtn');
+    if (retryBtn) retryBtn.style.display = 'none';
+
+    const retryNotice = retryCount > 0 ? ` (Attempt ${retryCount + 1}/${maxRetries + 1})` : '';
+    this.updateStatus(`Connecting to ${roomCode}...${retryNotice}`, 'connecting');
+    if (promptPillText) promptPillText.textContent = `Connecting to Room ${roomCode}...${retryNotice}`;
     if (promptTitle) promptTitle.textContent = `Joining Room ${roomCode}`;
-    if (promptDesc) promptDesc.textContent = `Connecting directly to the host device. Once paired, you can beam photos, videos, and documents instantly.`;
+    if (promptDesc) promptDesc.textContent = retryCount > 0
+      ? `Waiting for host to register... Attempt ${retryCount + 1} of ${maxRetries + 1}. Retrying automatically.`
+      : `Connecting directly to the host device. Establishing peer-to-peer data tunnel...`;
 
-    const clientPeerId = `inthawnna-${roomCode}-cli-${Math.floor(Math.random() * 10000)}`;
+    // Clean up previous peer if retrying
+    if (this.peer && !this.peer.destroyed) {
+      try { this.peer.destroy(); } catch (e) {}
+    }
 
+    const clientPeerId = `inthawnna-${roomCode}-cli-${Math.floor(1000 + Math.random() * 9000)}`;
     this.peer = new Peer(clientPeerId, this.getPeerConfig());
+
+    let connectionResolved = false;
+    let stage2Timer = null;
+    let timeoutTimer = null;
+
+    const cleanupTimers = () => {
+      if (stage2Timer) clearTimeout(stage2Timer);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+    };
+
+    const triggerRetry = (reason) => {
+      if (connectionResolved) return;
+      connectionResolved = true;
+      cleanupTimers();
+
+      if (retryCount < maxRetries) {
+        const delays = [250, 450, 700, 1000, 1400, 1800];
+        const nextDelay = delays[retryCount] || 1500;
+        if (promptPillText) promptPillText.textContent = `Host warming up, retrying in ${(nextDelay / 1000).toFixed(1)}s...`;
+        if (promptDesc) promptDesc.textContent = `Host device is initializing. Attempt ${retryCount + 1}/${maxRetries + 1} in progress...`;
+        setTimeout(() => {
+          this.initPeerClient(roomCode, retryCount + 1);
+        }, nextDelay);
+      } else {
+        this.isConnecting = false;
+        this.updateStatus('Pairing Failed', 'connecting');
+        if (promptPillText) promptPillText.textContent = 'Pairing Failed';
+        if (promptTitle) promptTitle.textContent = 'Could Not Connect';
+        if (promptDesc) promptDesc.textContent = `Could not reach Room ${roomCode}. Ensure the host device has Inthawnna open and awake on screen, then tap Retry.`;
+        if (promptActions) promptActions.style.display = 'flex';
+        if (retryBtn) retryBtn.style.display = 'inline-flex';
+        showToast(`Could not pair with Room ${roomCode} (${reason || 'timeout'}). Tap Retry to try again.`, 'danger');
+      }
+    };
 
     this.peer.on('open', () => {
       const hostId = `inthawnna-${roomCode}-host`;
       const conn = this.peer.connect(hostId, { reliable: true });
       this.handleIncomingConnection(conn);
 
-      // Connection timeout watcher (25s) in case host tab is closed or asleep
-      const connTimeout = setTimeout(() => {
-        if (!conn.open && (!this.connections || !this.connections.has(hostId))) {
-          this.updateStatus('Host Unreachable', 'connecting');
-          if (promptPillText) promptPillText.textContent = 'Connection Timed Out';
-          if (promptTitle) promptTitle.textContent = 'Host Device Not Responding';
-          if (promptDesc) promptDesc.textContent = `Could not reach Room ${roomCode}. Ensure the host device has Inthawnna open and awake on screen, then refresh to retry.`;
-          showToast('Connection timed out. Ensure the host tab is open and awake.', 'warning');
+      // Intermediate progress notice after 2.5s
+      stage2Timer = setTimeout(() => {
+        if (!connectionResolved && (!conn.open && (!this.connections || !this.connections.has(hostId)))) {
+          if (promptPillText) promptPillText.textContent = `Optimizing direct route...`;
+          if (promptDesc) promptDesc.textContent = `Finding optimal direct link between devices...`;
         }
-      }, 25000);
+      }, 2500);
+
+      // Timeout if connection doesn't open within 6s
+      timeoutTimer = setTimeout(() => {
+        if (!conn.open && (!this.connections || !this.connections.has(hostId))) {
+          console.warn('[WebRTC] Connection handshake stalled after 6s.');
+          triggerRetry('stalled connection');
+        }
+      }, 6000);
 
       conn.on('open', () => {
-        clearTimeout(connTimeout);
+        connectionResolved = true;
+        this.isConnecting = false;
+        cleanupTimers();
+        if (promptActions) promptActions.style.display = 'flex';
+        if (retryBtn) retryBtn.style.display = 'none';
+      });
+
+      conn.on('error', (err) => {
+        console.warn('Data connection error:', err);
+        if (!conn.open) {
+          triggerRetry(err.type || 'connection error');
+        }
       });
     });
 
     this.peer.on('error', (err) => {
       console.warn('Client peer error:', err);
-      this.updateStatus('Pairing Failed', 'connecting');
-      if (promptPillText) promptPillText.textContent = 'Pairing Failed';
-      if (promptTitle) promptTitle.textContent = 'Could Not Connect';
       if (err.type === 'peer-unavailable') {
-        if (promptDesc) promptDesc.textContent = `Room ${roomCode} was not found. Please ensure the host tab is open with Room ${roomCode}.`;
-        showToast(`Room ${roomCode} not found or host tab closed.`, 'danger');
+        triggerRetry('host not ready');
       } else {
-        if (promptDesc) promptDesc.textContent = `Could not connect to Room ${roomCode}. Ensure both devices have an active internet/Wi-Fi connection and the host tab is open.`;
-        showToast('Could not pair with Room ' + roomCode + (err.type ? ` (${err.type})` : ''), 'danger');
+        triggerRetry(err.type || 'peer error');
       }
     });
   }
@@ -1038,9 +1111,11 @@ class InthawnnaP2P {
 
       if (promptPulseDot) promptPulseDot.classList.add('online');
       if (promptPillText) promptPillText.textContent = `${count} Device${count === 1 ? '' : 's'} Paired`;
-      if (promptTitle) promptTitle.textContent = '🎉 Connected • Beam Files Directly!';
-      if (promptDesc) promptDesc.textContent = 'Your phone and PC are linked over direct high-speed Wi-Fi. You can now send files or sync clipboard.';
-      if (promptActions) promptActions.style.display = 'block';
+      if (promptTitle) promptTitle.textContent = '🎉 Connected • Send Files Directly!';
+      if (promptDesc) promptDesc.textContent = 'Your phone and PC are linked over direct high-speed Wi-Fi. Tap Send Files to transfer photos, videos, and documents instantly.';
+      if (promptActions) promptActions.style.display = 'flex';
+      const promptSendText = document.getElementById('promptOpenTransferText');
+      if (promptSendText) promptSendText.textContent = 'Send Files Now ➔';
     } else {
       this.updateStatus(this.isHost ? `Room ${this.roomId}` : 'Waiting to Connect', 'connecting');
       if (peersCard) peersCard.style.display = 'none';
@@ -1049,7 +1124,9 @@ class InthawnnaP2P {
       if (promptPillText) promptPillText.textContent = this.isHost ? 'Awaiting Device Pairing' : 'Waiting to Connect';
       if (promptTitle) promptTitle.textContent = 'Pair your devices';
       if (promptDesc) promptDesc.textContent = 'Connect your devices to transfer files at maximum Wi-Fi speed. Scan the QR code below with your phone camera, or enter the 6-digit Room Code.';
-      if (promptActions) promptActions.style.display = 'none';
+      if (promptActions) promptActions.style.display = 'flex';
+      const promptSendText = document.getElementById('promptOpenTransferText');
+      if (promptSendText) promptSendText.textContent = 'Send Files';
     }
   }
 
@@ -1099,6 +1176,52 @@ class InthawnnaP2P {
           await this.finalizeIncomingFile(data.fileId);
           break;
 
+        case 'file_cancel':
+          if (data.fileId) {
+            this.incomingTransfers.delete(data.fileId);
+          } else {
+            this.incomingTransfers.clear();
+          }
+          document.getElementById('activeTransferCard').style.display = 'none';
+          this.resetTransferControls();
+          wakeLock.release();
+          showToast('Transfer was cancelled by sender', 'warning');
+          break;
+
+        case 'file_cancel_request':
+          if (this.isSending && (!data.fileId || this.currentTransferFileId === data.fileId)) {
+            this.isCancelled = true;
+            this.isSending = false;
+            document.getElementById('activeTransferCard').style.display = 'none';
+            this.resetTransferControls();
+            wakeLock.release();
+            showToast('Transfer cancelled by receiver', 'warning');
+          }
+          break;
+
+        case 'transfer_paused':
+          document.getElementById('transferSpeed').textContent = 'Paused';
+          const rxPauseBtn = document.getElementById('transferPauseBtn');
+          const rxPauseLabel = document.getElementById('transferPauseLabel');
+          if (rxPauseLabel) rxPauseLabel.textContent = 'Paused';
+          rxPauseBtn?.classList.add('paused');
+          showToast('Transfer paused by peer', 'info');
+          break;
+
+        case 'transfer_resumed':
+          const rxResBtn = document.getElementById('transferPauseBtn');
+          const rxResLabel = document.getElementById('transferPauseLabel');
+          if (rxResLabel) rxResLabel.textContent = 'Pause';
+          rxResBtn?.classList.remove('paused');
+          showToast('Transfer resumed by peer', 'info');
+          break;
+
+        case 'transfer_pause_request':
+          if (this.isSending) {
+            this.togglePauseTransfer();
+          }
+          break;
+
         case 'clipboard':
           this.handleIncomingClipboard(data);
           break;
@@ -1109,6 +1232,8 @@ class InthawnnaP2P {
   // --- Incoming File Processing (Always Auto-Accept) ---
   handleIncomingFileMeta(meta) {
     wakeLock.request();
+    this.currentTransferFileId = meta.fileId;
+    this.resetTransferControls();
     this.incomingTransfers.set(meta.fileId, {
       meta,
       chunks: new Array(meta.totalChunks),
@@ -1127,6 +1252,7 @@ class InthawnnaP2P {
     this.incomingTransfers.delete(fileId);
     wakeLock.release();
     document.getElementById('activeTransferCard').style.display = 'none';
+    this.resetTransferControls();
 
     // Construct final Blob
     const blob = new Blob(transfer.chunks, { type: transfer.meta.mimeType });
@@ -1181,6 +1307,8 @@ class InthawnnaP2P {
     }
 
     this.isSending = true;
+    this.isCancelled = false;
+    this.isPaused = false;
     document.getElementById('activeTransferCard').style.display = 'block';
     document.getElementById('stagedQueueCard').style.display = 'none';
 
@@ -1189,18 +1317,34 @@ class InthawnnaP2P {
     this.renderStagedFiles();
 
     for (const file of filesToSend) {
-      await this.streamSingleFile(file);
+      if (this.isCancelled) break;
+      const success = await this.streamSingleFile(file);
+      if (!success) break;
     }
 
+    const wasCancelled = this.isCancelled;
     this.isSending = false;
+    this.isCancelled = false;
+    this.isPaused = false;
     document.getElementById('activeTransferCard').style.display = 'none';
-    sounds.playSuccess();
-    showToast('All files sent successfully!', 'success');
+    this.resetTransferControls();
+
+    if (!wasCancelled) {
+      sounds.playSuccess();
+      showToast('All files sent successfully!', 'success');
+    }
   }
 
   async streamSingleFile(file) {
     wakeLock.request();
     const fileId = Math.floor(Math.random() * 0xFFFFFF);
+    this.currentTransferFileId = fileId;
+    this.isPaused = false;
+    this.isCancelled = false;
+    this.pauseStartTime = 0;
+    this.totalPausedDuration = 0;
+    this.resetTransferControls();
+
     const totalChunks = Math.ceil(file.size / this.CHUNK_SIZE);
     const startTime = Date.now();
 
@@ -1223,6 +1367,19 @@ class InthawnnaP2P {
 
     // 2. Stream binary slices with backpressure control
     while (offset < file.size) {
+      if (this.isCancelled) {
+        console.log('[Transfer] Cancelled by user.');
+        break;
+      }
+
+      while (this.isPaused && !this.isCancelled) {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
+
+      if (this.isCancelled) {
+        break;
+      }
+
       // Check backpressure on all peer RTCDataChannels
       for (const conn of this.connections.values()) {
         const dc = conn.dataChannel;
@@ -1237,6 +1394,8 @@ class InthawnnaP2P {
           });
         }
       }
+
+      if (this.isCancelled) break;
 
       const slice = file.slice(offset, offset + this.CHUNK_SIZE);
       const arrayBuffer = await slice.arrayBuffer();
@@ -1256,7 +1415,16 @@ class InthawnnaP2P {
       offset += slice.size;
       chunkIndex++;
 
-      this.updateTransferProgress(file.name, offset, file.size, startTime, true);
+      const effectiveElapsed = Math.max(0.1, (Date.now() - startTime - this.totalPausedDuration) / 1000);
+      this.updateTransferProgress(file.name, offset, file.size, effectiveElapsed, true, this.isPaused);
+    }
+
+    if (this.isCancelled) {
+      for (const conn of this.connections.values()) {
+        conn.send({ type: 'file_cancel', fileId });
+      }
+      wakeLock.release();
+      return false;
     }
 
     // 3. Send completion notice
@@ -1266,17 +1434,105 @@ class InthawnnaP2P {
     }
 
     wakeLock.release();
+    return true;
+  }
+
+  togglePauseTransfer() {
+    if (!this.isSending && this.incomingTransfers.size === 0) return;
+    haptics.tap();
+
+    if (this.isSending) {
+      this.isPaused = !this.isPaused;
+      const pauseBtn = document.getElementById('transferPauseBtn');
+      const pauseLabel = document.getElementById('transferPauseLabel');
+      const iconPause = pauseBtn?.querySelector('.icon-pause');
+      const iconResume = pauseBtn?.querySelector('.icon-resume');
+
+      if (this.isPaused) {
+        this.pauseStartTime = Date.now();
+        if (pauseLabel) pauseLabel.textContent = 'Resume';
+        if (iconPause) iconPause.style.display = 'none';
+        if (iconResume) iconResume.style.display = 'inline-block';
+        pauseBtn?.classList.add('paused');
+        document.getElementById('transferSpeed').textContent = 'Paused';
+        showToast('Transfer paused', 'info');
+        for (const conn of this.connections.values()) {
+          conn.send({ type: 'transfer_paused', fileId: this.currentTransferFileId });
+        }
+      } else {
+        if (this.pauseStartTime) {
+          this.totalPausedDuration = (this.totalPausedDuration || 0) + (Date.now() - this.pauseStartTime);
+          this.pauseStartTime = 0;
+        }
+        if (pauseLabel) pauseLabel.textContent = 'Pause';
+        if (iconPause) iconPause.style.display = 'inline-block';
+        if (iconResume) iconResume.style.display = 'none';
+        pauseBtn?.classList.remove('paused');
+        showToast('Transfer resumed', 'info');
+        for (const conn of this.connections.values()) {
+          conn.send({ type: 'transfer_resumed', fileId: this.currentTransferFileId });
+        }
+      }
+    } else if (this.incomingTransfers.size > 0) {
+      for (const [fileId] of this.incomingTransfers.entries()) {
+        for (const conn of this.connections.values()) {
+          conn.send({ type: 'transfer_pause_request', fileId });
+        }
+      }
+    }
+  }
+
+  cancelTransfer() {
+    haptics.tap();
+    if (this.isSending) {
+      this.isCancelled = true;
+      this.isPaused = false;
+      this.isSending = false;
+      document.getElementById('activeTransferCard').style.display = 'none';
+      this.resetTransferControls();
+      wakeLock.release();
+      showToast('Transfer cancelled', 'warning');
+      for (const conn of this.connections.values()) {
+        conn.send({ type: 'file_cancel', fileId: this.currentTransferFileId });
+      }
+    } else if (this.incomingTransfers.size > 0) {
+      for (const [fileId] of this.incomingTransfers.entries()) {
+        for (const conn of this.connections.values()) {
+          conn.send({ type: 'file_cancel_request', fileId });
+        }
+      }
+      this.incomingTransfers.clear();
+      document.getElementById('activeTransferCard').style.display = 'none';
+      this.resetTransferControls();
+      wakeLock.release();
+      showToast('Transfer cancelled', 'warning');
+    }
+  }
+
+  resetTransferControls() {
+    const pauseBtn = document.getElementById('transferPauseBtn');
+    const pauseLabel = document.getElementById('transferPauseLabel');
+    const iconPause = pauseBtn?.querySelector('.icon-pause');
+    const iconResume = pauseBtn?.querySelector('.icon-resume');
+    if (pauseLabel) pauseLabel.textContent = 'Pause';
+    if (iconPause) iconPause.style.display = 'inline-block';
+    if (iconResume) iconResume.style.display = 'none';
+    pauseBtn?.classList.remove('paused');
   }
 
   // --- Progress Monitor UI ---
-  updateTransferProgress(fileName, loaded, total, startTime, isSending) {
+  updateTransferProgress(fileName, loaded, total, elapsedSecOrStartTime, isSending, isPaused = false) {
     const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
-    const elapsedSec = (Date.now() - startTime) / 1000;
+    const elapsedSec = typeof elapsedSecOrStartTime === 'number' && elapsedSecOrStartTime < 1000000 
+      ? elapsedSecOrStartTime 
+      : Math.max(0.1, (Date.now() - elapsedSecOrStartTime) / 1000);
     const speedBytes = elapsedSec > 0 ? loaded / elapsedSec : 0;
-    const speedStr = `${formatBytes(speedBytes)}/s`;
+    const speedStr = isPaused ? 'Paused' : `${formatBytes(speedBytes)}/s`;
 
     let etaStr = '';
-    if (speedBytes > 0 && loaded < total) {
+    if (isPaused) {
+      etaStr = 'Paused';
+    } else if (speedBytes > 0 && loaded < total) {
       const remainingBytes = total - loaded;
       const remainingSec = Math.round(remainingBytes / speedBytes);
       etaStr = `ETA: ~${remainingSec}s`;
@@ -1308,7 +1564,7 @@ class InthawnnaP2P {
 
     this.clipboardHistory.unshift(item);
     this.renderClipboard();
-    showToast('Text beamed to peer!', 'success');
+    showToast('Text sent to peer!', 'success');
   }
 
   handleIncomingClipboard(data) {
@@ -1791,6 +2047,21 @@ class InthawnnaP2P {
       this.sendStagedFiles();
     });
 
+    // Prompt open transfer button (upper screen option)
+    document.getElementById('promptOpenTransferBtn')?.addEventListener('click', () => {
+      haptics.tap();
+      this.switchTab('transferTab');
+    });
+
+    // Transfer controls: Pause / Resume & Cancel
+    document.getElementById('transferPauseBtn')?.addEventListener('click', () => {
+      this.togglePauseTransfer();
+    });
+
+    document.getElementById('transferCancelBtn')?.addEventListener('click', () => {
+      this.cancelTransfer();
+    });
+
     // Received files actions
     document.getElementById('downloadAllZipBtn')?.addEventListener('click', () => {
       this.downloadAllAsZip();
@@ -1845,6 +2116,12 @@ class InthawnnaP2P {
       }
     };
     document.getElementById('joinRoomBtn')?.addEventListener('click', triggerJoin);
+    document.getElementById('promptRetryPairBtn')?.addEventListener('click', () => {
+      if (this.roomId) {
+        haptics.tap();
+        this.initPeerClient(this.roomId, 0);
+      }
+    });
     document.getElementById('joinRoomCodeInput')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
