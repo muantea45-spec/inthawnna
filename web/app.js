@@ -825,27 +825,15 @@ class InthawnnaP2P {
 
   getPeerConfig() {
     return {
-      debug: 1,
+      debug: 0,
       pingInterval: 3000,
       config: {
         iceServers: [
-          // Google Anycast STUN servers (ultra-low latency global routing, sub-15ms)
+          // Single fastest worldwide Google Anycast STUN (<10ms globally)
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' },
-
-          // Cloudflare Anycast STUN (high-speed global edge)
-          { urls: 'stun:stun.cloudflare.com:3478' },
-
-          // Mozilla STUN
-          { urls: 'stun:stun.services.mozilla.com' },
-
-          // Nextcloud STUN
-          { urls: 'stun:stun.nextcloud.com:443' }
+          { urls: 'stun:stun.cloudflare.com:3478' }
         ],
-        iceCandidatePoolSize: 6,
+        iceCandidatePoolSize: 0, // 0 = Do NOT pre-generate candidate flood; only generate 2 active candidates
         bundlePolicy: 'max-bundle',
         rtcpMuxPolicy: 'require'
       }
@@ -868,10 +856,6 @@ class InthawnnaP2P {
       this.updateStatus(`Room ${roomCode}`, 'online');
       this.renderQRCode();
       showToast(`Room ${roomCode} ready! Scan with phone camera`, 'success');
-
-      // Reverse Discovery ("By hook or crook"):
-      // Host proactively probes if phone has registered as inthawnna-${roomCode}-phone
-      this.startHostPhoneDiscovery(roomCode);
     });
 
     this.peer.on('connection', (conn) => {
@@ -894,7 +878,6 @@ class InthawnnaP2P {
     this.peer.on('error', (err) => {
       console.warn('Host peer error:', err);
       if (err.type === 'unavailable-id') {
-        // Collision: pick another code and retry
         this.roomId = Math.floor(100000 + Math.random() * 900000).toString();
         this.renderRoomCode();
         this.initPeerHost(this.roomId);
@@ -905,8 +888,6 @@ class InthawnnaP2P {
             try { this.peer.reconnect(); } catch (e) {}
           }
         }, 1500);
-      } else if (err.type === 'peer-unavailable') {
-        // Normal during discovery probe; ignore silently
       } else {
         this.updateStatus('Offline / Retry', 'connecting');
       }
@@ -923,40 +904,11 @@ class InthawnnaP2P {
     }, 3500);
   }
 
-  startHostPhoneDiscovery(roomCode) {
-    if (this.hostDiscoveryTimer) clearInterval(this.hostDiscoveryTimer);
-    const phonePeerId = `inthawnna-${roomCode}-phone`;
-
-    this.hostDiscoveryTimer = setInterval(() => {
-      // Only probe if no peers are connected yet and host peer is open
-      if (this.connections.size > 0 || !this.peer || this.peer.destroyed || !this.peer.open || this.peer.disconnected) {
-        return;
-      }
-      try {
-        const probeConn = this.peer.connect(phonePeerId, { reliable: true });
-        if (probeConn) {
-          probeConn.on('open', () => {
-            console.log('[Host] Phone reached via reverse discovery probe!');
-            this.handleIncomingConnection(probeConn);
-          });
-          probeConn.on('error', () => {
-            // Normal if phone hasn't opened yet
-          });
-          setTimeout(() => {
-            if (!probeConn.open) {
-              try { probeConn.close(); } catch (e) {}
-            }
-          }, 3000);
-        }
-      } catch (e) {}
-    }, 2200);
-  }
-
   // --- Client Mode Initialization ---
   async initPeerClient(roomCode) {
     this.isConnecting = true;
     this.clientConnectAttempt = 0;
-    const maxAttempts = 35;
+    const maxAttempts = 25;
 
     // Keep mobile screen awake while connecting/pairing
     try { wakeLock.request(); } catch (e) {}
@@ -964,7 +916,6 @@ class InthawnnaP2P {
     const promptPillText = document.getElementById('promptPillText');
     const promptTitle = document.getElementById('promptTitle');
     const promptDesc = document.getElementById('promptDesc');
-    const promptActions = document.getElementById('promptActions');
     const retryBtn = document.getElementById('promptRetryPairBtn');
     if (retryBtn) retryBtn.style.display = 'none';
 
@@ -973,52 +924,36 @@ class InthawnnaP2P {
     if (promptTitle) promptTitle.textContent = `Connecting to your PC`;
     if (promptDesc) promptDesc.textContent = `Establishing direct P2P data tunnel with your PC...`;
 
-    // Try primary well-known phone ID first so host can also auto-discover
-    const phonePeerId = `inthawnna-${roomCode}-phone`;
-    const fallbackCliId = `inthawnna-${roomCode}-cli-${Math.floor(1000 + Math.random() * 9000)}`;
+    const clientPeerId = `inthawnna-${roomCode}-cli-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const createPeerAndConnect = (preferredId) => {
+    if (this.peer && !this.peer.destroyed) {
+      try { this.peer.destroy(); } catch (e) {}
+    }
+
+    this.peer = new Peer(clientPeerId, this.getPeerConfig());
+
+    this.peer.on('open', () => {
+      console.log(`[Client] Registered as ${this.peer.id}. Starting host connection...`);
+      this.startConnectingToHost(roomCode, maxAttempts);
+    });
+
+    this.peer.on('disconnected', () => {
+      console.warn('[Client] Disconnected from signaling broker. Auto-reconnecting...');
       if (this.peer && !this.peer.destroyed) {
-        try { this.peer.destroy(); } catch (e) {}
+        try { this.peer.reconnect(); } catch (e) {}
       }
+    });
 
-      this.peer = new Peer(preferredId, this.getPeerConfig());
-
-      this.peer.on('open', () => {
-        console.log(`[Client] Registered as ${this.peer.id}. Starting host connection...`);
-        this.startConnectingToHost(roomCode, maxAttempts);
-      });
-
-      this.peer.on('connection', (conn) => {
-        console.log('[Client] Host reached us via reverse discovery!');
-        this.handleIncomingConnection(conn);
-      });
-
-      this.peer.on('disconnected', () => {
-        console.warn('[Client] Disconnected from signaling broker. Auto-reconnecting...');
-        if (this.peer && !this.peer.destroyed) {
+    this.peer.on('error', (err) => {
+      console.warn('[Client] Peer error:', err);
+      if (err.type === 'peer-unavailable') {
+        // Handled in startConnectingToHost
+      } else if (err.type === 'network' || err.type === 'socket-error' || err.type === 'server-error') {
+        if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
           try { this.peer.reconnect(); } catch (e) {}
         }
-      });
-
-      this.peer.on('error', (err) => {
-        console.warn('[Client] Peer error:', err);
-        if (err.type === 'unavailable-id') {
-          if (preferredId === phonePeerId) {
-            console.log('[Client] Primary phone ID in use, switching to random client ID...');
-            createPeerAndConnect(fallbackCliId);
-          }
-        } else if (err.type === 'peer-unavailable') {
-          // Normal when host hasn't opened yet; handled in retry loop
-        } else if (err.type === 'network' || err.type === 'socket-error' || err.type === 'server-error') {
-          if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
-            try { this.peer.reconnect(); } catch (e) {}
-          }
-        }
-      });
-    };
-
-    createPeerAndConnect(phonePeerId);
+      }
+    });
   }
 
   startConnectingToHost(roomCode, maxAttempts) {
@@ -1030,6 +965,7 @@ class InthawnnaP2P {
     const retryBtn = document.getElementById('promptRetryPairBtn');
 
     if (this.clientConnectTimer) clearTimeout(this.clientConnectTimer);
+    let activeConn = null;
 
     const attemptConnect = () => {
       // If already connected, stop
@@ -1067,42 +1003,53 @@ class InthawnnaP2P {
       }
 
       if (this.peer.disconnected) {
-        console.log('[Client] Peer disconnected from broker, reconnecting...');
         try { this.peer.reconnect(); } catch (e) {}
       }
 
       try {
-        console.log(`[Client] Calling peer.connect(${hostId}) - Attempt ${attempt}`);
-        const conn = this.peer.connect(hostId, { reliable: true });
+        console.log(`[Client] Initiating connection to ${hostId} (Attempt ${attempt})...`);
+        activeConn = this.peer.connect(hostId, { reliable: true });
 
-        let opened = false;
-
-        conn.on('open', () => {
-          opened = true;
+        activeConn.on('open', () => {
+          console.log('[Client] Connected to host DataChannel!');
           this.isConnecting = false;
           if (this.clientConnectTimer) clearTimeout(this.clientConnectTimer);
-          this.handleIncomingConnection(conn);
+          this.handleIncomingConnection(activeConn);
           if (promptActions) promptActions.style.display = 'flex';
           if (retryBtn) retryBtn.style.display = 'none';
         });
 
-        conn.on('error', (err) => {
-          console.warn(`[Client] Data connection error on attempt ${attempt}:`, err);
+        activeConn.on('error', (err) => {
+          console.warn(`[Client] Connection error on attempt ${attempt}:`, err);
         });
 
-        // Set retry interval (1.4 seconds) without destroying the Peer instance!
+        // Generous handshake timeout (6 seconds) to let DTLS/SCTP finish without premature abort
         this.clientConnectTimer = setTimeout(() => {
-          if (!opened && this.connections.size === 0) {
-            try { conn.close(); } catch (e) {}
+          if (this.connections.size === 0) {
+            console.log(`[Client] Attempt ${attempt} handshake timed out, retrying...`);
+            if (activeConn && !activeConn.open) {
+              try { activeConn.close(); } catch (e) {}
+            }
             attemptConnect();
           }
-        }, 1400);
+        }, 6000);
 
       } catch (err) {
         console.warn(`[Client] peer.connect error:`, err);
-        this.clientConnectTimer = setTimeout(attemptConnect, 1400);
+        this.clientConnectTimer = setTimeout(attemptConnect, 1200);
       }
     };
+
+    // If signaling reports host unavailable (not registered yet), retry quickly after 1.2s
+    const onPeerUnavailable = (err) => {
+      if (err.type === 'peer-unavailable' && this.connections.size === 0) {
+        console.log(`[Client] Host ${hostId} not ready on broker yet. Waiting 1.2s to retry...`);
+        if (this.clientConnectTimer) clearTimeout(this.clientConnectTimer);
+        this.clientConnectTimer = setTimeout(attemptConnect, 1200);
+      }
+    };
+    this.peer.off('error', onPeerUnavailable);
+    this.peer.on('error', onPeerUnavailable);
 
     attemptConnect();
   }
