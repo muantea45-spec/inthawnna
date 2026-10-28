@@ -172,9 +172,9 @@ class BeamServer {
       return await QRCode.toDataURL(url, {
         errorCorrectionLevel: 'M',
         margin: 2,
-        width: 300,
+        width: 320,
         color: {
-          dark: '#0f172a',
+          dark: '#000000',
           light: '#ffffff'
         }
       });

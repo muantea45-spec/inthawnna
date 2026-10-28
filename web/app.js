@@ -758,13 +758,30 @@ class InthawnnaP2P {
   }
 
   async init() {
-    // 1. Detect if Room ID is passed via URL hash (#room=123456 or #123456)
-    const hash = window.location.hash.replace('#', '').trim();
+    // 1. Detect Room ID from query param (?room=123456 or ?r=123456) OR hash (#room=123456 or #123456)
     let targetRoom = null;
-    if (hash.startsWith('room=')) {
-      targetRoom = hash.replace('room=', '').trim();
-    } else if (/^\d{4,8}$/.test(hash) || /^inth-[a-zA-Z0-9_-]+$/.test(hash)) {
-      targetRoom = hash;
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.has('room') && searchParams.get('room').trim()) {
+        targetRoom = searchParams.get('room').trim();
+      } else if (searchParams.has('r') && searchParams.get('r').trim()) {
+        targetRoom = searchParams.get('r').trim();
+      }
+    } catch (e) {}
+
+    if (!targetRoom && window.location.hash) {
+      const rawHash = window.location.hash.replace(/^#/, '').trim();
+      try {
+        const hashParams = new URLSearchParams(rawHash.includes('=') ? rawHash : `room=${rawHash}`);
+        if (hashParams.has('room') && hashParams.get('room').trim()) {
+          targetRoom = hashParams.get('room').trim();
+        } else if (hashParams.has('r') && hashParams.get('r').trim()) {
+          targetRoom = hashParams.get('r').trim();
+        }
+      } catch (e) {}
+      if (!targetRoom && (/^\d{4,8}$/.test(rawHash) || /^inth-[a-zA-Z0-9_-]+$/.test(rawHash))) {
+        targetRoom = rawHash;
+      }
     }
 
     if (targetRoom) {
@@ -782,15 +799,15 @@ class InthawnnaP2P {
     this.setupUIHandlers();
     this.renderRoomCode();
 
-    // Auto-reconnect when user returns to this tab (e.g. from WhatsApp/locking screen)
+    // Auto-reconnect when user returns to this tab (e.g. from camera/lock screen/switching apps)
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (this.peer && this.peer.disconnected && !this.peer.destroyed) {
-          console.log('Tab active: Reconnecting to signaling broker...');
+          console.log('[Tab Active] Reconnecting to signaling broker...');
           try {
             this.peer.reconnect();
           } catch (e) {
-            console.warn('Reconnect error:', e);
+            console.warn('[Tab Active] Reconnect error:', e);
           }
         }
       }
@@ -801,7 +818,7 @@ class InthawnnaP2P {
     const isInApp = /FBAN|FBAV|Instagram|WhatsApp|Line|Twitter|Snapchat/i.test(ua);
     if (isInApp) {
       setTimeout(() => {
-        showToast('Tip: For best transfer speed, open in Chrome or Safari (tap ⋮)', 'info');
+        showToast('Tip: For fastest speed and full file access, open in Chrome or Safari (tap ⋮)', 'info');
       }, 1200);
     }
   }
@@ -819,29 +836,16 @@ class InthawnnaP2P {
           { urls: 'stun:stun3.l.google.com:19302' },
           { urls: 'stun:stun4.l.google.com:19302' },
 
-          // Cloudflare Anycast STUN
+          // Cloudflare Anycast STUN (high-speed global edge)
           { urls: 'stun:stun.cloudflare.com:3478' },
 
-          // Fast UDP TURN Relay fallback (handles mobile 4G/5G carrier grade NAT)
-          {
-            urls: 'turn:openrelay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turn:openrelay.metered.ca:443?transport=udp',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
+          // Mozilla STUN
+          { urls: 'stun:stun.services.mozilla.com' },
 
-          // Secure TLS/TCP fallback relay (handles strict firewalls that block UDP)
-          {
-            urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          }
+          // Nextcloud STUN
+          { urls: 'stun:stun.nextcloud.com:443' }
         ],
-        iceCandidatePoolSize: 10,
+        iceCandidatePoolSize: 6,
         bundlePolicy: 'max-bundle',
         rtcpMuxPolicy: 'require'
       }
@@ -863,7 +867,11 @@ class InthawnnaP2P {
       this.peerId = id;
       this.updateStatus(`Room ${roomCode}`, 'online');
       this.renderQRCode();
-      showToast(`Room ${roomCode} created. Scan QR with phone!`, 'success');
+      showToast(`Room ${roomCode} ready! Scan with phone camera`, 'success');
+
+      // Reverse Discovery ("By hook or crook"):
+      // Host proactively probes if phone has registered as inthawnna-${roomCode}-phone
+      this.startHostPhoneDiscovery(roomCode);
     });
 
     this.peer.on('connection', (conn) => {
@@ -897,18 +905,58 @@ class InthawnnaP2P {
             try { this.peer.reconnect(); } catch (e) {}
           }
         }, 1500);
+      } else if (err.type === 'peer-unavailable') {
+        // Normal during discovery probe; ignore silently
       } else {
         this.updateStatus('Offline / Retry', 'connecting');
-        showToast('Connection note: ' + err.type, 'danger');
       }
     });
+
+    // Proactive keepalive heartbeat for host to prevent broker timeout
+    if (this.hostHeartbeatTimer) clearInterval(this.hostHeartbeatTimer);
+    this.hostHeartbeatTimer = setInterval(() => {
+      if (this.isHost && this.peer) {
+        if (this.peer.disconnected && !this.peer.destroyed) {
+          try { this.peer.reconnect(); } catch (e) {}
+        }
+      }
+    }, 3500);
+  }
+
+  startHostPhoneDiscovery(roomCode) {
+    if (this.hostDiscoveryTimer) clearInterval(this.hostDiscoveryTimer);
+    const phonePeerId = `inthawnna-${roomCode}-phone`;
+
+    this.hostDiscoveryTimer = setInterval(() => {
+      // Only probe if no peers are connected yet and host peer is open
+      if (this.connections.size > 0 || !this.peer || this.peer.destroyed || !this.peer.open || this.peer.disconnected) {
+        return;
+      }
+      try {
+        const probeConn = this.peer.connect(phonePeerId, { reliable: true });
+        if (probeConn) {
+          probeConn.on('open', () => {
+            console.log('[Host] Phone reached via reverse discovery probe!');
+            this.handleIncomingConnection(probeConn);
+          });
+          probeConn.on('error', () => {
+            // Normal if phone hasn't opened yet
+          });
+          setTimeout(() => {
+            if (!probeConn.open) {
+              try { probeConn.close(); } catch (e) {}
+            }
+          }, 3000);
+        }
+      } catch (e) {}
+    }, 2200);
   }
 
   // --- Client Mode Initialization ---
-  async initPeerClient(roomCode, retryCount = 0) {
-    const maxRetries = 6;
-    this.clientRetryCount = retryCount;
+  async initPeerClient(roomCode) {
     this.isConnecting = true;
+    this.clientConnectAttempt = 0;
+    const maxAttempts = 35;
 
     // Keep mobile screen awake while connecting/pairing
     try { wakeLock.request(); } catch (e) {}
@@ -920,105 +968,158 @@ class InthawnnaP2P {
     const retryBtn = document.getElementById('promptRetryPairBtn');
     if (retryBtn) retryBtn.style.display = 'none';
 
-    const retryNotice = retryCount > 0 ? ` (Attempt ${retryCount + 1}/${maxRetries + 1})` : '';
-    this.updateStatus(`Connecting to ${roomCode}...${retryNotice}`, 'connecting');
-    if (promptPillText) promptPillText.textContent = `Connecting to Room ${roomCode}...${retryNotice}`;
-    if (promptTitle) promptTitle.textContent = `Joining Room ${roomCode}`;
-    if (promptDesc) promptDesc.textContent = retryCount > 0
-      ? `Waiting for host to register... Attempt ${retryCount + 1} of ${maxRetries + 1}. Retrying automatically.`
-      : `Connecting directly to the host device. Establishing peer-to-peer data tunnel...`;
+    this.updateStatus(`Connecting to ${roomCode}...`, 'connecting');
+    if (promptPillText) promptPillText.textContent = `Connecting to Room ${roomCode}...`;
+    if (promptTitle) promptTitle.textContent = `Connecting to your PC`;
+    if (promptDesc) promptDesc.textContent = `Establishing direct P2P data tunnel with your PC...`;
 
-    // Clean up previous peer if retrying
-    if (this.peer && !this.peer.destroyed) {
-      try { this.peer.destroy(); } catch (e) {}
-    }
+    // Try primary well-known phone ID first so host can also auto-discover
+    const phonePeerId = `inthawnna-${roomCode}-phone`;
+    const fallbackCliId = `inthawnna-${roomCode}-cli-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const clientPeerId = `inthawnna-${roomCode}-cli-${Math.floor(1000 + Math.random() * 9000)}`;
-    this.peer = new Peer(clientPeerId, this.getPeerConfig());
+    const createPeerAndConnect = (preferredId) => {
+      if (this.peer && !this.peer.destroyed) {
+        try { this.peer.destroy(); } catch (e) {}
+      }
 
-    let connectionResolved = false;
-    let stage2Timer = null;
-    let timeoutTimer = null;
+      this.peer = new Peer(preferredId, this.getPeerConfig());
 
-    const cleanupTimers = () => {
-      if (stage2Timer) clearTimeout(stage2Timer);
-      if (timeoutTimer) clearTimeout(timeoutTimer);
+      this.peer.on('open', () => {
+        console.log(`[Client] Registered as ${this.peer.id}. Starting host connection...`);
+        this.startConnectingToHost(roomCode, maxAttempts);
+      });
+
+      this.peer.on('connection', (conn) => {
+        console.log('[Client] Host reached us via reverse discovery!');
+        this.handleIncomingConnection(conn);
+      });
+
+      this.peer.on('disconnected', () => {
+        console.warn('[Client] Disconnected from signaling broker. Auto-reconnecting...');
+        if (this.peer && !this.peer.destroyed) {
+          try { this.peer.reconnect(); } catch (e) {}
+        }
+      });
+
+      this.peer.on('error', (err) => {
+        console.warn('[Client] Peer error:', err);
+        if (err.type === 'unavailable-id') {
+          if (preferredId === phonePeerId) {
+            console.log('[Client] Primary phone ID in use, switching to random client ID...');
+            createPeerAndConnect(fallbackCliId);
+          }
+        } else if (err.type === 'peer-unavailable') {
+          // Normal when host hasn't opened yet; handled in retry loop
+        } else if (err.type === 'network' || err.type === 'socket-error' || err.type === 'server-error') {
+          if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
+            try { this.peer.reconnect(); } catch (e) {}
+          }
+        }
+      });
     };
 
-    const triggerRetry = (reason) => {
-      if (connectionResolved) return;
-      connectionResolved = true;
-      cleanupTimers();
+    createPeerAndConnect(phonePeerId);
+  }
 
-      if (retryCount < maxRetries) {
-        const delays = [250, 450, 700, 1000, 1400, 1800];
-        const nextDelay = delays[retryCount] || 1500;
-        if (promptPillText) promptPillText.textContent = `Host warming up, retrying in ${(nextDelay / 1000).toFixed(1)}s...`;
-        if (promptDesc) promptDesc.textContent = `Host device is initializing. Attempt ${retryCount + 1}/${maxRetries + 1} in progress...`;
-        setTimeout(() => {
-          this.initPeerClient(roomCode, retryCount + 1);
-        }, nextDelay);
-      } else {
+  startConnectingToHost(roomCode, maxAttempts) {
+    const hostId = `inthawnna-${roomCode}-host`;
+    const promptPillText = document.getElementById('promptPillText');
+    const promptTitle = document.getElementById('promptTitle');
+    const promptDesc = document.getElementById('promptDesc');
+    const promptActions = document.getElementById('promptActions');
+    const retryBtn = document.getElementById('promptRetryPairBtn');
+
+    if (this.clientConnectTimer) clearTimeout(this.clientConnectTimer);
+
+    const attemptConnect = () => {
+      // If already connected, stop
+      if (this.connections.size > 0 || (this.connections.has && this.connections.has(hostId))) {
         this.isConnecting = false;
-        this.updateStatus('Pairing Failed', 'connecting');
-        if (promptPillText) promptPillText.textContent = 'Pairing Failed';
-        if (promptTitle) promptTitle.textContent = 'Could Not Connect';
-        if (promptDesc) promptDesc.textContent = `Could not reach Room ${roomCode}. Ensure the host device has Inthawnna open and awake on screen, then tap Retry.`;
+        return;
+      }
+
+      this.clientConnectAttempt++;
+      const attempt = this.clientConnectAttempt;
+
+      if (attempt > 1) {
+        const attemptLabel = `Linking to PC... (Attempt ${attempt}/${maxAttempts})`;
+        this.updateStatus(attemptLabel, 'connecting');
+        if (promptPillText) promptPillText.textContent = attemptLabel;
+        if (promptDesc) promptDesc.textContent = `Connecting directly to your PC... Keep Inthawnna open on your computer screen.`;
+      }
+
+      if (attempt > maxAttempts) {
+        this.isConnecting = false;
+        this.updateStatus('Pairing Timeout', 'connecting');
+        if (promptPillText) promptPillText.textContent = 'Pairing Timeout';
+        if (promptTitle) promptTitle.textContent = 'PC Not Detected';
+        if (promptDesc) promptDesc.textContent = `Could not reach Room ${roomCode}. Ensure Inthawnna is open on your PC screen, then tap Retry.`;
         if (promptActions) promptActions.style.display = 'flex';
         if (retryBtn) retryBtn.style.display = 'inline-flex';
-        showToast(`Could not pair with Room ${roomCode} (${reason || 'timeout'}). Tap Retry to try again.`, 'danger');
+        showToast(`Could not pair with Room ${roomCode}. Tap Retry to try again.`, 'danger');
+        return;
+      }
+
+      if (!this.peer || this.peer.destroyed) {
+        console.warn('[Client] Peer destroyed, restarting client peer...');
+        this.initPeerClient(roomCode);
+        return;
+      }
+
+      if (this.peer.disconnected) {
+        console.log('[Client] Peer disconnected from broker, reconnecting...');
+        try { this.peer.reconnect(); } catch (e) {}
+      }
+
+      try {
+        console.log(`[Client] Calling peer.connect(${hostId}) - Attempt ${attempt}`);
+        const conn = this.peer.connect(hostId, { reliable: true });
+
+        let opened = false;
+
+        conn.on('open', () => {
+          opened = true;
+          this.isConnecting = false;
+          if (this.clientConnectTimer) clearTimeout(this.clientConnectTimer);
+          this.handleIncomingConnection(conn);
+          if (promptActions) promptActions.style.display = 'flex';
+          if (retryBtn) retryBtn.style.display = 'none';
+        });
+
+        conn.on('error', (err) => {
+          console.warn(`[Client] Data connection error on attempt ${attempt}:`, err);
+        });
+
+        // Set retry interval (1.4 seconds) without destroying the Peer instance!
+        this.clientConnectTimer = setTimeout(() => {
+          if (!opened && this.connections.size === 0) {
+            try { conn.close(); } catch (e) {}
+            attemptConnect();
+          }
+        }, 1400);
+
+      } catch (err) {
+        console.warn(`[Client] peer.connect error:`, err);
+        this.clientConnectTimer = setTimeout(attemptConnect, 1400);
       }
     };
 
-    this.peer.on('open', () => {
-      const hostId = `inthawnna-${roomCode}-host`;
-      const conn = this.peer.connect(hostId, { reliable: true });
-      this.handleIncomingConnection(conn);
-
-      // Intermediate progress notice after 2.5s
-      stage2Timer = setTimeout(() => {
-        if (!connectionResolved && (!conn.open && (!this.connections || !this.connections.has(hostId)))) {
-          if (promptPillText) promptPillText.textContent = `Optimizing direct route...`;
-          if (promptDesc) promptDesc.textContent = `Finding optimal direct link between devices...`;
-        }
-      }, 2500);
-
-      // Timeout if connection doesn't open within 6s
-      timeoutTimer = setTimeout(() => {
-        if (!conn.open && (!this.connections || !this.connections.has(hostId))) {
-          console.warn('[WebRTC] Connection handshake stalled after 6s.');
-          triggerRetry('stalled connection');
-        }
-      }, 6000);
-
-      conn.on('open', () => {
-        connectionResolved = true;
-        this.isConnecting = false;
-        cleanupTimers();
-        if (promptActions) promptActions.style.display = 'flex';
-        if (retryBtn) retryBtn.style.display = 'none';
-      });
-
-      conn.on('error', (err) => {
-        console.warn('Data connection error:', err);
-        if (!conn.open) {
-          triggerRetry(err.type || 'connection error');
-        }
-      });
-    });
-
-    this.peer.on('error', (err) => {
-      console.warn('Client peer error:', err);
-      if (err.type === 'peer-unavailable') {
-        triggerRetry('host not ready');
-      } else {
-        triggerRetry(err.type || 'peer error');
-      }
-    });
+    attemptConnect();
   }
 
   // --- Handle Data Connection ---
   handleIncomingConnection(conn) {
+    if (!conn) return;
+
+    // Guard against duplicate connection setups for the same peer
+    if (this.connections.has(conn.peer) && this.connections.get(conn.peer).open) {
+      console.log(`[P2P] Already connected to ${conn.peer}, ignoring duplicate.`);
+      return;
+    }
+
+    if (this.clientConnectTimer) clearTimeout(this.clientConnectTimer);
+    if (this.hostDiscoveryTimer) clearInterval(this.hostDiscoveryTimer);
+
     // Monitor WebRTC ICE connection state across different networks
     const monitorICE = () => {
       const pc = conn.peerConnection;
@@ -1027,7 +1128,7 @@ class InthawnnaP2P {
         pc.addEventListener('iceconnectionstatechange', () => {
           console.log('[WebRTC ICE] Connection state:', pc.iceConnectionState);
           if (pc.iceConnectionState === 'failed') {
-            console.warn('[WebRTC ICE] Direct route failed across networks. Attempting ICE restart...');
+            console.warn('[WebRTC ICE] Direct route failed. Restarting ICE...');
             if (typeof pc.restartIce === 'function') {
               pc.restartIce();
             }
@@ -1035,31 +1136,42 @@ class InthawnnaP2P {
         });
       }
     };
+
     if (conn.peerConnection) {
       monitorICE();
     } else {
-      setTimeout(monitorICE, 500);
-      setTimeout(monitorICE, 1500);
+      setTimeout(monitorICE, 400);
+      setTimeout(monitorICE, 1200);
     }
 
-    conn.on('open', () => {
+    const onConnected = () => {
       this.connections.set(conn.peer, conn);
+      this.isConnecting = false;
       this.updateConnectedUI();
       sounds.playConnected();
+      haptics.success();
       showToast('Connected to peer device!', 'success');
 
-      // Send local device info
-      conn.send({
-        type: 'peer_handshake',
-        userAgent: navigator.userAgent,
-        platform: navigator.platform
-      });
+      // Send local device info handshake
+      try {
+        conn.send({
+          type: 'peer_handshake',
+          userAgent: navigator.userAgent,
+          platform: navigator.platform
+        });
+      } catch (e) {}
 
-      // If this device joined as client (e.g. mobile scanned QR code), switch directly to Send Files
+      // If mobile client (phone scanned QR code), switch directly to Send Files tab
       if (!this.isHost) {
         this.switchTab('transferTab');
       }
-    });
+    };
+
+    if (conn.open) {
+      onConnected();
+    } else {
+      conn.on('open', onConnected);
+    }
 
     conn.on('data', (data) => {
       this.handleReceivedData(conn, data);
@@ -1598,10 +1710,10 @@ class InthawnnaP2P {
                     /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
                     window.location.protocol === 'file:';
     if (isLocal) {
-      return `https://inthawnna.pages.dev/#room=${roomId}`;
+      return `https://inthawnna.pages.dev/?room=${roomId}#room=${roomId}`;
     }
     const base = `${window.location.origin}${window.location.pathname}`.replace(/\/index\.html$/, '').replace(/\/$/, '');
-    return `${base}/#room=${roomId}`;
+    return `${base}/?room=${roomId}#room=${roomId}`;
   }
 
   renderRoomCode() {
@@ -1611,7 +1723,8 @@ class InthawnnaP2P {
     
     if (shareText) {
       const url = this.getLiveUrl();
-      shareText.textContent = url;
+      const displayUrl = `https://inthawnna.pages.dev/#room=${this.roomId || ''}`;
+      shareText.textContent = displayUrl;
       if (shareText.tagName === 'A') {
         shareText.href = url;
       }
@@ -1624,10 +1737,11 @@ class InthawnnaP2P {
 
     const url = this.getLiveUrl();
     QRCode.toCanvas(canvas, url, {
-      width: 208,
-      margin: 1,
+      width: 216,
+      margin: 2,
+      errorCorrectionLevel: 'M',
       color: {
-        dark: '#060911',
+        dark: '#000000',
         light: '#ffffff'
       }
     }, (err) => {
@@ -2111,15 +2225,14 @@ class InthawnnaP2P {
       const input = document.getElementById('joinRoomCodeInput');
       const code = input?.value.trim();
       if (code) {
-        window.location.hash = `room=${code}`;
-        window.location.reload();
+        window.location.href = `?room=${code}#room=${code}`;
       }
     };
     document.getElementById('joinRoomBtn')?.addEventListener('click', triggerJoin);
     document.getElementById('promptRetryPairBtn')?.addEventListener('click', () => {
       if (this.roomId) {
         haptics.tap();
-        this.initPeerClient(this.roomId, 0);
+        this.initPeerClient(this.roomId);
       }
     });
     document.getElementById('joinRoomCodeInput')?.addEventListener('keydown', (e) => {
@@ -2150,13 +2263,14 @@ class InthawnnaP2P {
               try {
                 const barcodes = await detector.detect(video);
                 if (barcodes.length > 0) {
-                  const raw = barcodes[0].rawValue;
-                  const match = raw.match(/#room=([a-zA-Z0-9_-]+)/);
+                  const raw = barcodes[0].rawValue || '';
+                  const match = raw.match(/[?&#]room=([a-zA-Z0-9_-]+)/) ||
+                                raw.match(/[?&#]r=([a-zA-Z0-9_-]+)/) ||
+                                (/^\d{4,8}$/.test(raw.trim()) ? [null, raw.trim()] : null);
                   if (match && match[1]) {
                     stream.getTracks().forEach(t => t.stop());
                     cameraWrapper.style.display = 'none';
-                    window.location.hash = `room=${match[1]}`;
-                    window.location.reload();
+                    window.location.href = `?room=${match[1]}#room=${match[1]}`;
                     return;
                   }
                 }

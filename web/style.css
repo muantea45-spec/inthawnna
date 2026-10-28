@@ -1389,41 +1389,28 @@ body::before {
 
 .qr-frame {
   position: relative;
-  width: 230px;
-  height: 230px;
+  width: 240px;
+  height: 240px;
   background: #ffffff;
-  padding: 16px;
+  padding: 12px;
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75);
-  border: 1px solid var(--border-medium);
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.85), 0 0 0 2px rgba(255, 255, 255, 0.1);
+  border: 2px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  box-sizing: border-box;
 }
 
 #qrCanvas {
-  width: 100% !important;
-  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: 216px !important;
+  height: 216px !important;
   display: block;
-}
-
-.qr-scanner-line {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2.5px;
-  background: linear-gradient(90deg, transparent, #ffffff, #a1a1aa, transparent);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
-  animation: scanLaser 2.6s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes scanLaser {
-  0% { top: 0; }
-  50% { top: 96%; }
-  100% { top: 0; }
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .qr-caption {
